@@ -1,0 +1,89 @@
+# Docker ignore file for BioIntel.AI
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+*.db
+*.sqlite3
+test.db
+logs/
+uploads/
+reports/
+static/uploads/
+node_modules/
+.env
+.env.local
+.env.production
+.env.test
+
+# Documentation
+docs/
+*.md
+README.md
+CHANGELOG.md
+
+# Testing
+htmlcov/
+.pytest_cache/
+.coverage
+coverage.xml
+*.cover
+
+# Development
+.gitignore
+Dockerfile*
+docker-compose*
+deployment-info.json
+nginx.conf
+init.sql
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/

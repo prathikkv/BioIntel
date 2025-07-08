@@ -48,6 +48,9 @@ class Settings(BaseSettings):
         env="ALLOWED_FILE_TYPES"
     )
     
+    # Reports
+    REPORTS_DIR: str = Field(default="/tmp/biointel_reports", env="REPORTS_DIR")
+    
     # Email (for notifications)
     SMTP_HOST: Optional[str] = Field(default=None, env="SMTP_HOST")
     SMTP_PORT: int = Field(default=587, env="SMTP_PORT")

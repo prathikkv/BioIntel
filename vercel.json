@@ -1,17 +1,49 @@
 {
-  "functions": {
-    "api/*.py": {
-      "runtime": "python3.9"
-    }
-  },
-  "rewrites": [
+  "version": 2,
+  "name": "biointel-ai-backend",
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/api/main"
+      "src": "api/main.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb",
+        "runtime": "python3.9"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/main.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "api/main.py"
     }
   ],
   "env": {
+    "ENVIRONMENT": "production",
+    "DEBUG": "False",
+    "DATABASE_URL": "@database_url",
+    "SECRET_KEY": "@secret_key",
+    "JWT_SECRET_KEY": "@jwt_secret_key",
+    "ANTHROPIC_API_KEY": "@anthropic_api_key",
+    "OPENAI_API_KEY": "@openai_api_key",
+    "REDIS_URL": "@redis_url",
+    "SENTRY_DSN": "@sentry_dsn",
     "PYTHONPATH": "."
+  },
+  "build": {
+    "env": {
+      "ENVIRONMENT": "production"
+    }
+  },
+  "functions": {
+    "api/main.py": {
+      "maxDuration": 30,
+      "memory": 1024,
+      "runtime": "python3.9"
+    }
   },
   "headers": [
     {
@@ -27,9 +59,46 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "X-Requested-With, Content-Type, Authorization"
+          "value": "Content-Type, Authorization"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
         }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/docs",
+      "destination": "/api/docs"
+    },
+    {
+      "source": "/redoc",
+      "destination": "/api/redoc"
+    },
+    {
+      "source": "/openapi.json",
+      "destination": "/api/openapi.json"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/api/health",
+      "permanent": false
     }
   ]
 }

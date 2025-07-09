@@ -152,6 +152,9 @@ class APIKey(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True))
     last_used_at = Column(DateTime(timezone=True))
+    last_used = Column(DateTime(timezone=True))  # Added for compatibility
+    rate_limit = Column(Integer, default=100)  # Added for rate limiting
+    usage_count = Column(Integer, default=0)  # Added for usage tracking
     is_active = Column(Boolean, default=True)
     
     # Relationships
@@ -169,6 +172,9 @@ class APIKey(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+            "last_used": self.last_used.isoformat() if self.last_used else None,
+            "rate_limit": self.rate_limit,
+            "usage_count": self.usage_count,
             "is_active": self.is_active
         }
 

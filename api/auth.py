@@ -316,7 +316,7 @@ async def list_api_keys(current_user: User = Depends(get_current_user)):
     try:
         # Get user's API keys from database
         from models.database import get_db
-        from models.user import APIKey
+        from models.enterprise import APIKey
         
         db = next(get_db())
         api_keys = db.query(APIKey).filter(APIKey.user_id == current_user.id).all()
@@ -337,7 +337,7 @@ async def delete_api_key(key_id: int, current_user: User = Depends(get_current_u
     """Delete API key"""
     try:
         from models.database import get_db
-        from models.user import APIKey
+        from models.enterprise import APIKey
         
         db = next(get_db())
         api_key = db.query(APIKey).filter(

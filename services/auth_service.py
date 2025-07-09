@@ -18,7 +18,9 @@ class AuthService:
     """Authentication service for user management and JWT operations"""
     
     def __init__(self):
-        self.db = next(get_db())
+        # Note: Database sessions should be managed per request using dependency injection
+        # This is a temporary solution for the global service instance
+        pass
         
     @staticmethod
     async def initialize():
@@ -27,6 +29,7 @@ class AuthService:
     
     async def register_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
         """Register a new user"""
+        db = next(get_db())
         try:
             # Validate email
             email_validation = security_utils.validate_email(user_data["email"])
@@ -37,7 +40,7 @@ class AuthService:
                 )
             
             # Check if user already exists
-            existing_user = self.db.query(User).filter(
+            existing_user = db.query(User).filter(
                 User.email == email_validation["normalized"]
             ).first()
             
@@ -72,9 +75,9 @@ class AuthService:
                 email_verification_token=secrets.token_urlsafe(32)
             )
             
-            self.db.add(new_user)
-            self.db.commit()
-            self.db.refresh(new_user)
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
             
             # Create access and refresh tokens
             access_token = security_utils.create_access_token(
@@ -102,9 +105,12 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error during registration"
             )
+        finally:
+            db.close()
     
     async def authenticate_user(self, email: str, password: str, ip_address: str = None) -> Dict[str, Any]:
         """Authenticate user with email and password"""
+        db = next(get_db())
         try:
             # Validate email format
             email_validation = security_utils.validate_email(email)
@@ -124,7 +130,7 @@ class AuthService:
                 )
             
             # Get user from database
-            user = self.db.query(User).filter(User.email == normalized_email).first()
+            user = db.query(User).filter(User.email == normalized_email).first()
             
             if not user:
                 security_utils.track_failed_login(normalized_email)
@@ -137,7 +143,7 @@ class AuthService:
             if not security_utils.verify_password(password, user.hashed_password):
                 security_utils.track_failed_login(normalized_email)
                 user.failed_login_attempts += 1
-                self.db.commit()
+                db.commit()
                 
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -155,7 +161,7 @@ class AuthService:
             security_utils.clear_failed_logins(normalized_email)
             user.failed_login_attempts = 0
             user.last_login = datetime.utcnow()
-            self.db.commit()
+            db.commit()
             
             # Create tokens
             access_token = security_utils.create_access_token(
@@ -173,8 +179,8 @@ class AuthService:
                 expires_at=datetime.utcnow() + timedelta(days=7)
             )
             
-            self.db.add(session)
-            self.db.commit()
+            db.add(session)
+            db.commit()
             
             logger.info(f"User authenticated successfully: {user.email}")
             
@@ -195,9 +201,12 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error during authentication"
             )
+        finally:
+            db.close()
     
     async def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
         """Refresh access token using refresh token"""
+        db = next(get_db())
         try:
             # Verify refresh token
             payload = security_utils.verify_token(refresh_token)
@@ -217,7 +226,7 @@ class AuthService:
             
             # Get user
             user_id = payload.get("sub")
-            user = self.db.query(User).filter(User.id == int(user_id)).first()
+            user = db.query(User).filter(User.id == int(user_id)).first()
             
             if not user or not user.is_active:
                 raise HTTPException(
@@ -245,22 +254,25 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error during token refresh"
             )
+        finally:
+            db.close()
     
     async def logout_user(self, token: str, session_id: str = None) -> Dict[str, Any]:
         """Logout user by revoking token and session"""
+        db = next(get_db())
         try:
             # Revoke token
             security_utils.revoke_token(token)
             
             # Deactivate session if provided
             if session_id:
-                session = self.db.query(UserSession).filter(
+                session = db.query(UserSession).filter(
                     UserSession.session_id == session_id
                 ).first()
                 
                 if session:
                     session.is_active = False
-                    self.db.commit()
+                    db.commit()
             
             logger.info("User logged out successfully")
             
@@ -272,9 +284,12 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error during logout"
             )
+        finally:
+            db.close()
     
     async def get_current_user(self, token: str) -> User:
         """Get current user from token"""
+        db = next(get_db())
         try:
             # Verify token
             payload = security_utils.verify_token(token)
@@ -294,7 +309,7 @@ class AuthService:
             
             # Get user
             user_id = payload.get("sub")
-            user = self.db.query(User).filter(User.id == int(user_id)).first()
+            user = db.query(User).filter(User.id == int(user_id)).first()
             
             if not user:
                 raise HTTPException(
@@ -318,9 +333,12 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error"
             )
+        finally:
+            db.close()
     
     async def reset_password_request(self, email: str) -> Dict[str, Any]:
         """Request password reset"""
+        db = next(get_db())
         try:
             # Validate email
             email_validation = security_utils.validate_email(email)
@@ -331,7 +349,7 @@ class AuthService:
                 )
             
             # Get user
-            user = self.db.query(User).filter(
+            user = db.query(User).filter(
                 User.email == email_validation["normalized"]
             ).first()
             
@@ -344,7 +362,7 @@ class AuthService:
             user.password_reset_token = reset_token
             user.password_reset_expires = datetime.utcnow() + timedelta(hours=1)
             
-            self.db.commit()
+            db.commit()
             
             # TODO: Send email with reset link
             logger.info(f"Password reset requested for user: {user.email}")
@@ -359,9 +377,12 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error"
             )
+        finally:
+            db.close()
     
     async def reset_password(self, token: str, new_password: str) -> Dict[str, Any]:
         """Reset password using reset token"""
+        db = next(get_db())
         try:
             # Validate password strength
             password_validation = security_utils.validate_password_strength(new_password)
@@ -372,7 +393,7 @@ class AuthService:
                 )
             
             # Find user with reset token
-            user = self.db.query(User).filter(
+            user = db.query(User).filter(
                 User.password_reset_token == token
             ).first()
             
@@ -395,7 +416,7 @@ class AuthService:
             user.password_reset_expires = None
             user.failed_login_attempts = 0
             
-            self.db.commit()
+            db.commit()
             
             logger.info(f"Password reset successful for user: {user.email}")
             
@@ -409,9 +430,12 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error"
             )
+        finally:
+            db.close()
     
     async def create_api_key(self, user_id: int, key_name: str, permissions: Dict[str, Any] = None) -> Dict[str, Any]:
         """Create API key for user"""
+        db = next(get_db())
         try:
             # Generate API key
             api_key = f"bai_{secrets.token_urlsafe(32)}"
@@ -426,9 +450,9 @@ class AuthService:
                 rate_limit=settings.RATE_LIMIT_REQUESTS
             )
             
-            self.db.add(new_api_key)
-            self.db.commit()
-            self.db.refresh(new_api_key)
+            db.add(new_api_key)
+            db.commit()
+            db.refresh(new_api_key)
             
             logger.info(f"API key created for user {user_id}: {key_name}")
             
@@ -444,9 +468,12 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error"
             )
+        finally:
+            db.close()
     
     async def verify_api_key(self, api_key: str) -> User:
         """Verify API key and return user"""
+        db = next(get_db())
         try:
             if not api_key.startswith("bai_"):
                 raise HTTPException(
@@ -458,7 +485,7 @@ class AuthService:
             key_hash = hashlib.sha256(api_key.encode()).hexdigest()
             
             # Find API key record
-            api_key_record = self.db.query(APIKey).filter(
+            api_key_record = db.query(APIKey).filter(
                 APIKey.key_hash == key_hash,
                 APIKey.is_active == True
             ).first()
@@ -477,7 +504,7 @@ class AuthService:
                 )
             
             # Get user
-            user = self.db.query(User).filter(User.id == api_key_record.user_id).first()
+            user = db.query(User).filter(User.id == api_key_record.user_id).first()
             
             if not user or not user.is_active:
                 raise HTTPException(
@@ -488,7 +515,7 @@ class AuthService:
             # Update usage statistics
             api_key_record.usage_count += 1
             api_key_record.last_used = datetime.utcnow()
-            self.db.commit()
+            db.commit()
             
             return user
             
@@ -500,6 +527,8 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error"
             )
+        finally:
+            db.close()
 
 # Global auth service instance
 auth_service = AuthService()

@@ -1,16 +1,6 @@
 {
   "version": 2,
   "name": "biointel-ai-backend",
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "api/main.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "api/main.py"
-    }
-  ],
   "env": {
     "ENVIRONMENT": "production",
     "DEBUG": "False",
@@ -82,6 +72,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
     {
       "source": "/docs",
       "destination": "/api/docs"

@@ -42,7 +42,7 @@
   "functions": {
     "api/main.py": {
       "maxDuration": 300,
-      "memory": 3008,
+      "memory": 1024,
       "runtime": "python3.9"
     }
   },

@@ -30,9 +30,17 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, env="REFRESH_TOKEN_EXPIRE_DAYS")
     
-    # External APIs
-    ANTHROPIC_API_KEY: Optional[str] = Field(default=None, env="ANTHROPIC_API_KEY")
-    OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
+    # Free AI Configuration
+    USE_FREE_AI: bool = Field(default=True, env="USE_FREE_AI")
+    HUGGINGFACE_CACHE_DIR: str = Field(default="/tmp/huggingface", env="HUGGINGFACE_CACHE_DIR")
+    TORCH_CACHE_DIR: str = Field(default="/tmp/torch", env="TORCH_CACHE_DIR")
+    
+    # Free Bioinformatics APIs
+    PUBMED_BASE_URL: str = Field(default="https://eutils.ncbi.nlm.nih.gov/entrez/eutils", env="PUBMED_BASE_URL")
+    UNIPROT_BASE_URL: str = Field(default="https://rest.uniprot.org", env="UNIPROT_BASE_URL")
+    ENSEMBL_BASE_URL: str = Field(default="https://rest.ensembl.org", env="ENSEMBL_BASE_URL")
+    STRING_BASE_URL: str = Field(default="https://string-db.org/api", env="STRING_BASE_URL")
+    KEGG_BASE_URL: str = Field(default="https://rest.kegg.jp", env="KEGG_BASE_URL")
     
     # Redis
     REDIS_URL: str = Field(default="redis://localhost:6379", env="REDIS_URL")
@@ -69,9 +77,21 @@ class Settings(BaseSettings):
     # Data Processing
     MAX_GENES: int = Field(default=50000, env="MAX_GENES")
     MAX_SAMPLES: int = Field(default=10000, env="MAX_SAMPLES")
+    MAX_GENES_PER_ANALYSIS: int = Field(default=1000, env="MAX_GENES_PER_ANALYSIS")
     
     # Literature Processing
     MAX_PAPER_LENGTH: int = Field(default=100000, env="MAX_PAPER_LENGTH")  # characters
+    
+    # Workflow Processing
+    DEFAULT_ANALYSIS_TIMEOUT: int = Field(default=3600, env="DEFAULT_ANALYSIS_TIMEOUT")  # seconds
+    MAX_CONCURRENT_ANALYSES: int = Field(default=10, env="MAX_CONCURRENT_ANALYSES")
+    ENABLE_BACKGROUND_PROCESSING: bool = Field(default=True, env="ENABLE_BACKGROUND_PROCESSING")
+    
+    # Enterprise Features
+    ENABLE_TEAMS: bool = Field(default=True, env="ENABLE_TEAMS")
+    ENABLE_API_KEYS: bool = Field(default=True, env="ENABLE_API_KEYS")
+    MAX_TEAM_MEMBERS: int = Field(default=100, env="MAX_TEAM_MEMBERS")
+    MAX_WORKSPACES_PER_TEAM: int = Field(default=20, env="MAX_WORKSPACES_PER_TEAM")
     
     # Logging
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")

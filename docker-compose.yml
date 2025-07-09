@@ -15,8 +15,27 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-jwt-secret-key}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Free AI Configuration (no API keys needed)
+      - USE_FREE_AI=true
+      - HUGGINGFACE_CACHE_DIR=/app/cache/huggingface
+      - TORCH_CACHE_DIR=/app/cache/torch
+      
+      # Free APIs Configuration (no API keys needed)
+      - PUBMED_BASE_URL=https://eutils.ncbi.nlm.nih.gov/entrez/eutils
+      - UNIPROT_BASE_URL=https://rest.uniprot.org
+      - ENSEMBL_BASE_URL=https://rest.ensembl.org
+      - STRING_BASE_URL=https://string-db.org/api
+      - KEGG_BASE_URL=https://rest.kegg.jp
+      
+      # Processing Limits
+      - MAX_FILE_SIZE=50000000
+      - MAX_PAPER_LENGTH=100000
+      - MAX_GENES_PER_ANALYSIS=1000
+      
+      # Rate Limiting
+      - RATE_LIMIT_REQUESTS=100
+      - RATE_LIMIT_WINDOW=60
     depends_on:
       - db
       - redis
@@ -24,9 +43,39 @@ services:
       - ./logs:/app/logs
       - ./uploads:/app/uploads
       - ./reports:/app/reports
+      - ./cache:/app/cache
     networks:
       - biointel-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Celery Worker for background tasks
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=False
+      - DATABASE_URL=postgresql://biointel:biointel@db:5432/biointel_db
+      - REDIS_URL=redis://redis:6379/0
+      - USE_FREE_AI=true
+      - HUGGINGFACE_CACHE_DIR=/app/cache/huggingface
+      - TORCH_CACHE_DIR=/app/cache/torch
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./cache:/app/cache
+      - ./logs:/app/logs
+    networks:
+      - biointel-network
+    restart: unless-stopped
+    command: celery -A main.celery worker --loglevel=info
 
   # PostgreSQL Database
   db:
@@ -43,6 +92,11 @@ services:
     networks:
       - biointel-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U biointel -d biointel_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   # Redis Cache
   redis:
@@ -54,6 +108,11 @@ services:
     networks:
       - biointel-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   # Streamlit Frontend
   frontend:

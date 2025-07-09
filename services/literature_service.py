@@ -10,8 +10,6 @@ import PyPDF2
 import pdfplumber
 from io import BytesIO
 import httpx
-import anthropic
-import openai
 
 from models.database import get_db
 from models.literature import LiteratureSummary, ChatSession, ChatMessage, KnowledgeBase
@@ -19,24 +17,19 @@ from models.user import User
 from utils.logging import get_logger
 from utils.config import get_settings
 from utils.security import security_utils
+from services.free_ai_service import free_ai_service
+from services.bio_apis_service import bio_apis_service
 
 settings = get_settings()
 logger = get_logger(__name__)
 
 class LiteratureService:
-    """Service for literature processing and AI-powered summarization"""
+    """Service for literature processing and AI-powered summarization using FREE AI"""
     
     def __init__(self):
         self.db = next(get_db())
-        self.anthropic_client = None
-        self.openai_client = None
-        
-        # Initialize AI clients
-        if settings.ANTHROPIC_API_KEY:
-            self.anthropic_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        
-        if settings.OPENAI_API_KEY:
-            self.openai_client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        self.free_ai = free_ai_service
+        self.bio_apis = bio_apis_service
     
     @staticmethod
     async def initialize():
@@ -292,31 +285,47 @@ class LiteratureService:
             return None
     
     async def _generate_summary(self, text: str, content_type: str) -> Dict[str, Any]:
-        """Generate AI-powered summary using Claude or OpenAI"""
+        """Generate AI-powered summary using FREE AI service"""
         try:
-            # Create prompt based on content type
-            if content_type == "abstract":
-                prompt = self._create_abstract_prompt(text)
-            else:
-                prompt = self._create_full_paper_prompt(text)
+            logger.info(f"Generating summary for {content_type} using free AI")
             
-            # Try Claude first, then OpenAI as fallback
-            if self.anthropic_client:
-                try:
-                    response = await self._call_claude(prompt)
-                    return self._parse_ai_response(response)
-                except Exception as e:
-                    logger.warning(f"Claude API failed: {str(e)}, trying OpenAI")
+            # Use free AI service for comprehensive analysis
+            analysis = self.free_ai.analyze_biomedical_text(text)
             
-            if self.openai_client:
-                try:
-                    response = await self._call_openai(prompt)
-                    return self._parse_ai_response(response)
-                except Exception as e:
-                    logger.error(f"OpenAI API failed: {str(e)}")
+            # Enhance with PubMed literature search if possible
+            try:
+                # Extract key terms for literature search
+                key_terms = analysis["biomarkers"].genes[:3] + analysis["biomarkers"].diseases[:2]
+                if key_terms:
+                    search_query = " AND ".join(key_terms)
+                    pubmed_results = await self.bio_apis.search_pubmed(search_query, max_results=5)
+                    
+                    # Add related literature context
+                    related_papers = [
+                        {
+                            "title": paper.title,
+                            "authors": paper.authors[:3],  # First 3 authors
+                            "pmid": paper.pmid
+                        }
+                        for paper in pubmed_results
+                    ]
+                    analysis["related_literature"] = related_papers
+            except Exception as e:
+                logger.warning(f"Could not fetch related literature: {e}")
+                analysis["related_literature"] = []
             
-            # Fallback to rule-based processing
-            return self._rule_based_processing(text)
+            # Convert to expected format
+            return {
+                "summary": analysis["summary"],
+                "key_findings": analysis["key_findings"],
+                "biomarkers": analysis["biomarkers"].genes + analysis["biomarkers"].proteins,
+                "genes": analysis["biomarkers"].genes,
+                "diseases": analysis["biomarkers"].diseases,
+                "methods": analysis["biomarkers"].methods,
+                "confidence_score": analysis["biomarkers"].confidence_scores.get("genes", 0.8),
+                "clinical_relevance": analysis["clinical_relevance"],
+                "related_literature": analysis.get("related_literature", [])
+            }
             
         except Exception as e:
             logger.error(f"Error generating summary: {str(e)}")
@@ -362,38 +371,75 @@ class LiteratureService:
         Focus on accuracy and be conservative in your extractions. Only include information that is explicitly mentioned.
         """
     
-    async def _call_claude(self, prompt: str) -> str:
-        """Call Claude API"""
+    async def _call_free_ai(self, question: str, context: str) -> str:
+        """Call free AI service for Q&A"""
         try:
-            message = self.anthropic_client.messages.create(
-                model="claude-3-sonnet-20240229",
-                max_tokens=2000,
-                temperature=0.1,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            return message.content[0].text
+            # Use free AI for question answering
+            if len(context) > 5000:
+                context = context[:5000]  # Truncate for efficiency
+            
+            combined_text = f"Context: {context}\n\nQuestion: {question}"
+            analysis = self.free_ai.analyze_biomedical_text(combined_text)
+            
+            # Generate answer based on context
+            answer = self._generate_contextual_answer(question, context, analysis)
+            return answer
+            
         except Exception as e:
-            logger.error(f"Claude API error: {str(e)}")
-            raise
+            logger.error(f"Free AI error: {str(e)}")
+            return "I'm sorry, I couldn't process your question. Please try rephrasing it."
     
-    async def _call_openai(self, prompt: str) -> str:
-        """Call OpenAI API"""
+    def _generate_contextual_answer(self, question: str, context: str, analysis: Dict[str, Any]) -> str:
+        """Generate contextual answer using rule-based approach"""
         try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are an expert biomedical researcher."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=2000,
-                temperature=0.1
-            )
-            return response.choices[0].message.content
+            question_lower = question.lower()
+            
+            # Check for specific question types
+            if "biomarker" in question_lower or "marker" in question_lower:
+                biomarkers = analysis["biomarkers"].genes + analysis["biomarkers"].proteins
+                if biomarkers:
+                    return f"Based on the text, the following biomarkers were mentioned: {', '.join(biomarkers[:10])}"
+                else:
+                    return "No specific biomarkers were clearly identified in the provided text."
+            
+            elif "gene" in question_lower:
+                genes = analysis["biomarkers"].genes
+                if genes:
+                    return f"The following genes were mentioned: {', '.join(genes[:10])}"
+                else:
+                    return "No specific genes were clearly identified in the provided text."
+            
+            elif "disease" in question_lower:
+                diseases = analysis["biomarkers"].diseases
+                if diseases:
+                    return f"The following diseases or conditions were mentioned: {', '.join(diseases[:10])}"
+                else:
+                    return "No specific diseases were clearly identified in the provided text."
+            
+            elif "method" in question_lower:
+                methods = analysis["biomarkers"].methods
+                if methods:
+                    return f"The following methods were mentioned: {', '.join(methods[:10])}"
+                else:
+                    return "No specific research methods were clearly identified in the provided text."
+            
+            elif "summary" in question_lower:
+                return analysis["summary"]
+            
+            elif "finding" in question_lower:
+                findings = analysis["key_findings"]
+                if findings:
+                    return f"Key findings include: {'. '.join(findings[:5])}"
+                else:
+                    return "No specific findings were clearly identified in the provided text."
+            
+            else:
+                # General response
+                return f"Based on the analysis: {analysis['summary']}"
+                
         except Exception as e:
-            logger.error(f"OpenAI API error: {str(e)}")
-            raise
+            logger.error(f"Error generating contextual answer: {e}")
+            return "I'm sorry, I couldn't generate a proper answer. Please try rephrasing your question."
     
     def _parse_ai_response(self, response: str) -> Dict[str, Any]:
         """Parse AI response into structured format"""
@@ -555,35 +601,23 @@ class LiteratureService:
             Provide a clear, accurate answer based only on the paper content. Include relevant citations or sections where possible.
             """
             
-            # Generate response using available AI service
-            if self.anthropic_client:
-                try:
-                    response_text = await self._call_claude(prompt)
-                    return {
-                        "content": response_text,
-                        "citations": [],
-                        "confidence_score": 0.8
-                    }
-                except Exception as e:
-                    logger.warning(f"Claude API failed for chat: {str(e)}")
-            
-            if self.openai_client:
-                try:
-                    response_text = await self._call_openai(prompt)
-                    return {
-                        "content": response_text,
-                        "citations": [],
-                        "confidence_score": 0.8
-                    }
-                except Exception as e:
-                    logger.error(f"OpenAI API failed for chat: {str(e)}")
-            
-            # Fallback response
-            return {
-                "content": "I'm sorry, but I cannot process your question at the moment due to technical issues. Please try again later.",
-                "citations": [],
-                "confidence_score": 0.0
-            }
+            # Generate response using free AI service
+            try:
+                response_text = await self._call_free_ai(question, context)
+                return {
+                    "content": response_text,
+                    "citations": [],
+                    "confidence_score": 0.8
+                }
+            except Exception as e:
+                logger.error(f"Free AI failed for chat: {str(e)}")
+                
+                # Fallback response
+                return {
+                    "content": "I'm sorry, but I cannot process your question at the moment due to technical issues. Please try again later.",
+                    "citations": [],
+                    "confidence_score": 0.0
+                }
             
         except Exception as e:
             logger.error(f"Error generating chat response: {str(e)}")

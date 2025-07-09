@@ -15,6 +15,12 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from services.auth_service import AuthService
 from services.bioinformatics_service import BioinformaticsService
 from services.literature_service import LiteratureService
+from services.free_ai_service import FreeAIService
+from services.bio_apis_service import BioinformaticsAPIsService
+from services.public_datasets_service import PublicDatasetsService
+from services.analysis_templates_service import AnalysisTemplatesService
+from services.research_workflows_service import ResearchWorkflowsService
+from services.enterprise_service import EnterpriseService
 from models.database import engine, Base
 from utils.security import SecurityUtils
 from utils.logging import setup_logging
@@ -70,10 +76,10 @@ app.add_middleware(RequestLoggingMiddleware)
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Trusted hosts (for production)
@@ -96,6 +102,12 @@ async def startup_event():
         await AuthService.initialize()
         await BioinformaticsService.initialize()
         await LiteratureService.initialize()
+        await FreeAIService.initialize()
+        await BioinformaticsAPIsService.initialize()
+        await PublicDatasetsService.initialize()
+        await AnalysisTemplatesService.initialize()
+        await ResearchWorkflowsService.initialize()
+        await EnterpriseService.initialize()
         
         logger.info("BioIntel.AI API started successfully")
     except Exception as e:
@@ -138,12 +150,16 @@ from api.auth import router as auth_router
 from api.bioinformatics import router as bio_router
 from api.literature import router as literature_router
 from api.reports import router as reports_router
+from api.enterprise import router as enterprise_router
+from api.workflows import router as workflows_router
 
 # Include API routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(bio_router, prefix="/api/bio", tags=["Bioinformatics"])
 app.include_router(literature_router, prefix="/api/literature", tags=["Literature"])
 app.include_router(reports_router, prefix="/api/reports", tags=["Reports"])
+app.include_router(enterprise_router, prefix="/api/enterprise", tags=["Enterprise"])
+app.include_router(workflows_router, prefix="/api/workflows", tags=["Workflows"])
 
 # For Vercel deployment
 def handler(request, response):

@@ -1,10 +1,10 @@
 # 🧬 BioIntel.AI
 
-**AI-powered bioinformatics platform for gene expression analysis and literature summarization**
+**FREE AI-powered bioinformatics platform for gene expression analysis and literature summarization**
 
-BioIntel.AI is a comprehensive platform that combines advanced bioinformatics analysis with AI-powered literature mining to provide researchers with powerful tools for gene expression analysis, biomarker discovery, and scientific literature summarization.
+BioIntel.AI is a comprehensive, completely **FREE** platform that combines advanced bioinformatics analysis with AI-powered literature mining. Built with free alternatives to expensive AI APIs, it provides researchers with powerful tools for gene expression analysis, biomarker discovery, and scientific literature summarization at zero cost.
 
-## ✨ Features
+## ✨ Features (100% FREE)
 
 ### 🔬 Gene Expression Analysis
 - **Data Upload & Validation**: Support for CSV, Excel, and other common formats
@@ -14,32 +14,51 @@ BioIntel.AI is a comprehensive platform that combines advanced bioinformatics an
 - **Clustering Analysis**: K-means and hierarchical clustering
 - **Interactive Visualizations**: PCA plots, heatmaps, and correlation matrices
 
-### 📚 Literature Analysis
-- **Abstract Processing**: AI-powered summarization of research abstracts
+### 📚 Literature Analysis (FREE AI)
+- **Abstract Processing**: AI-powered summarization using Hugging Face Transformers
 - **PDF Processing**: Full-text extraction and analysis from research papers
-- **Entity Extraction**: Automatic identification of genes, biomarkers, diseases, and methods
-- **Chat with Papers**: Interactive Q&A with research papers using RAG
-- **Literature Search**: Comprehensive search across processed literature
+- **Entity Extraction**: Rule-based identification of genes, biomarkers, diseases, and methods
+- **Chat with Papers**: Interactive Q&A with research papers using free AI
+- **Literature Search**: Comprehensive PubMed integration (FREE API)
+
+### 🌐 Free Bioinformatics APIs
+- **PubMed Integration**: Literature search and analysis
+- **UniProt API**: Protein information and annotations
+- **Ensembl API**: Gene annotations and genomic data
+- **STRING API**: Protein-protein interaction networks
+- **KEGG API**: Pathway and metabolic information
 
 ### 📊 Report Generation
 - **HTML Reports**: Interactive web-based reports
 - **PDF Export**: Professional PDF reports for sharing
-- **Custom Templates**: Customizable report templates
-- **Combined Analysis**: Integrated data and literature reports
+- **Custom Templates**: 7 pre-configured analysis templates
+- **Automated Workflows**: 5 complete research pipelines
+
+### 🏢 Enterprise Features
+- **Team Collaboration**: Workspaces and shared analyses
+- **API Access**: Rate-limited API keys for programmatic access
+- **Usage Analytics**: Comprehensive usage monitoring
+- **Role-based Access**: User permissions and access control
 
 ### 🔐 Security & Authentication
 - **JWT Authentication**: Secure user authentication
-- **Role-based Access**: User permissions and access control
-- **Rate Limiting**: API protection and usage limits
 - **Data Encryption**: Secure data storage and transmission
+- **Rate Limiting**: API protection and usage limits
+- **Input Validation**: Comprehensive security measures
 
-## 🚀 Quick Start
+## 🚀 Quick Start (5 Minutes)
 
 ### Prerequisites
 - Python 3.8 or higher
-- PostgreSQL database
-- Redis (for caching)
+- Database (PostgreSQL recommended - free tier available)
+- Redis (for caching - free tier available)
 - Git
+
+### Free Deployment Options
+1. **Vercel** (Recommended) - Zero cost, one-click deployment
+2. **Railway** - Free tier with 500 hours/month
+3. **Heroku** - Free tier available
+4. **Docker** - Local deployment
 
 ### Installation
 
@@ -49,30 +68,27 @@ BioIntel.AI is a comprehensive platform that combines advanced bioinformatics an
    cd biointel
    ```
 
-2. **Run the installation script**
-   ```bash
-   chmod +x install.sh
-   ./install.sh
-   ```
-
-3. **Configure environment variables**
+2. **Configure environment variables**
    ```bash
    cp .env.example .env
-   # Edit .env with your configuration
+   # Edit .env with your FREE database and Redis URLs
    ```
 
-4. **Start the services**
+3. **Deploy with Docker (Recommended)**
    ```bash
-   # Start PostgreSQL and Redis
-   brew services start postgresql  # macOS
-   brew services start redis       # macOS
-   
-   # Activate virtual environment
-   source venv/bin/activate
-   
-   # Start the application
-   uvicorn api.main:app --reload --port 8000
+   docker-compose up -d
    ```
+
+4. **Or deploy to Vercel**
+   ```bash
+   npm i -g vercel
+   vercel --prod
+   ```
+
+### Access Your Application
+- **API Documentation**: http://localhost:8000/docs
+- **Frontend**: http://localhost:8501 (if using Streamlit)
+- **Health Check**: http://localhost:8000/health
 
 ### Manual Installation
 
@@ -103,27 +119,35 @@ BioIntel.AI is a comprehensive platform that combines advanced bioinformatics an
    uvicorn api.main:app --reload --port 8000
    ```
 
-## 🔧 Configuration
+## 🔧 Configuration (FREE Setup)
 
 ### Required Environment Variables
 
 ```env
-# Database
+# Database (FREE tier options: Supabase, PlanetScale, Neon)
 DATABASE_URL=postgresql://user:password@localhost/biointel
 
 # Security
 SECRET_KEY=your-secret-key-change-in-production
 JWT_SECRET_KEY=your-jwt-secret-key-change-in-production
 
-# AI APIs
-ANTHROPIC_API_KEY=your-anthropic-api-key-here
-OPENAI_API_KEY=your-openai-api-key-here
+# Free AI Configuration (NO API KEYS NEEDED)
+USE_FREE_AI=true
+HUGGINGFACE_CACHE_DIR=/tmp/huggingface
+TORCH_CACHE_DIR=/tmp/torch
 
-# Redis
+# Free APIs (NO API KEYS NEEDED)
+PUBMED_BASE_URL=https://eutils.ncbi.nlm.nih.gov/entrez/eutils
+UNIPROT_BASE_URL=https://rest.uniprot.org
+ENSEMBL_BASE_URL=https://rest.ensembl.org
+STRING_BASE_URL=https://string-db.org/api
+KEGG_BASE_URL=https://rest.kegg.jp
+
+# Redis (FREE tier options: Upstash, Redis Labs)
 REDIS_URL=redis://localhost:6379
 ```
 
-See `.env.example` for complete configuration options.
+**No API keys required!** See `.env.example` for complete configuration options.
 
 ## 📖 API Documentation
 

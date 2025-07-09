@@ -9,6 +9,8 @@ from cryptography.fernet import Fernet
 from email_validator import validate_email, EmailNotValidError
 import re
 import redis
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer
 from utils.config import get_settings
 from utils.logging import get_logger
 

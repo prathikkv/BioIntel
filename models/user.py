@@ -46,8 +46,15 @@ class User(Base):
     analysis_jobs = relationship("AnalysisJob", back_populates="user")
     literature_summaries = relationship("LiteratureSummary", back_populates="user")
     reports = relationship("Report", back_populates="user")
-    api_keys = relationship("APIKey", back_populates="user")
     audit_logs = relationship("AuditLog", back_populates="user")
+    
+    # Enterprise relationships
+    created_teams = relationship("Team", back_populates="creator")
+    team_memberships = relationship("TeamMember", back_populates="user")
+    created_workspaces = relationship("Workspace", back_populates="creator")
+    shared_analyses = relationship("SharedAnalysis", back_populates="user")
+    api_keys = relationship("APIKey", back_populates="user")
+    usage_logs = relationship("UsageLog", back_populates="user")
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert user to dictionary"""
@@ -70,49 +77,6 @@ class User(Base):
     def __repr__(self):
         return f"<User(email='{self.email}', full_name='{self.full_name}')>"
 
-class APIKey(Base):
-    """API key model for programmatic access"""
-    
-    __tablename__ = "api_keys"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    key_name = Column(String(100), nullable=False)
-    key_hash = Column(String(255), nullable=False)
-    is_active = Column(Boolean, default=True)
-    last_used = Column(DateTime(timezone=True), nullable=True)
-    usage_count = Column(Integer, default=0)
-    
-    # Permissions
-    permissions = Column(JSON, default={})
-    
-    # Rate limiting
-    rate_limit = Column(Integer, default=1000)  # requests per hour
-    
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    expires_at = Column(DateTime(timezone=True), nullable=True)
-    
-    # Relationships
-    user = relationship("User", back_populates="api_keys")
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert API key to dictionary"""
-        return {
-            "id": self.id,
-            "user_id": self.user_id,
-            "key_name": self.key_name,
-            "is_active": self.is_active,
-            "last_used": self.last_used.isoformat() if self.last_used else None,
-            "usage_count": self.usage_count,
-            "permissions": self.permissions,
-            "rate_limit": self.rate_limit,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "expires_at": self.expires_at.isoformat() if self.expires_at else None
-        }
-    
-    def __repr__(self):
-        return f"<APIKey(key_name='{self.key_name}', user_id={self.user_id})>"
 
 class UserSession(Base):
     """User session model for tracking active sessions"""

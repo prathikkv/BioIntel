@@ -27,11 +27,22 @@
     "DATABASE_URL": "@database_url",
     "SECRET_KEY": "@secret_key",
     "JWT_SECRET_KEY": "@jwt_secret_key",
-    "ANTHROPIC_API_KEY": "@anthropic_api_key",
-    "OPENAI_API_KEY": "@openai_api_key",
     "REDIS_URL": "@redis_url",
     "SENTRY_DSN": "@sentry_dsn",
-    "PYTHONPATH": "."
+    "PYTHONPATH": ".",
+    "USE_FREE_AI": "true",
+    "HUGGINGFACE_CACHE_DIR": "/tmp/huggingface",
+    "TORCH_CACHE_DIR": "/tmp/torch",
+    "PUBMED_BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
+    "UNIPROT_BASE_URL": "https://rest.uniprot.org",
+    "ENSEMBL_BASE_URL": "https://rest.ensembl.org",
+    "STRING_BASE_URL": "https://string-db.org/api",
+    "KEGG_BASE_URL": "https://rest.kegg.jp",
+    "MAX_FILE_SIZE": "50000000",
+    "MAX_PAPER_LENGTH": "100000",
+    "MAX_GENES_PER_ANALYSIS": "1000",
+    "RATE_LIMIT_REQUESTS": "100",
+    "RATE_LIMIT_WINDOW": "60"
   },
   "build": {
     "env": {
@@ -40,8 +51,8 @@
   },
   "functions": {
     "api/main.py": {
-      "maxDuration": 30,
-      "memory": 1024,
+      "maxDuration": 300,
+      "memory": 3008,
       "runtime": "python3.9"
     }
   },

@@ -25,20 +25,442 @@ from models.user import User
 from utils.logging import get_logger
 from utils.config import get_settings
 from utils.security import security_utils
+from services.bio_apis_service import bio_apis_service
+from services.free_ai_service import free_ai_service
 
 settings = get_settings()
 logger = get_logger(__name__)
 
 class BioinformaticsService:
-    """Service for bioinformatics data processing and analysis"""
+    """Service for bioinformatics data processing and analysis with FREE APIs"""
     
     def __init__(self):
         self.db = next(get_db())
+        self.bio_apis = bio_apis_service
+        self.free_ai = free_ai_service
         
     @staticmethod
     async def initialize():
         """Initialize bioinformatics service"""
         logger.info("Bioinformatics service initialized")
+    
+    async def annotate_genes(self, gene_list: List[str], user_id: int) -> Dict[str, Any]:
+        """
+        Annotate genes using free APIs (Ensembl, UniProt, KEGG)
+        """
+        try:
+            logger.info(f"Annotating {len(gene_list)} genes using free APIs")
+            
+            # Use comprehensive analysis from bio_apis_service
+            analysis_result = await self.bio_apis.analyze_gene_list(gene_list)
+            
+            # Process results for storage
+            annotations = []
+            for gene_info in analysis_result.get('genes', []):
+                annotations.append({
+                    'gene_id': gene_info.gene_id,
+                    'gene_name': gene_info.gene_name,
+                    'chromosome': gene_info.chromosome,
+                    'start': gene_info.start,
+                    'end': gene_info.end,
+                    'biotype': gene_info.biotype,
+                    'description': gene_info.description,
+                    'synonyms': gene_info.synonyms
+                })
+            
+            # Create analysis job record
+            analysis_job = AnalysisJob(
+                user_id=user_id,
+                dataset_id=None,  # This is a standalone gene annotation
+                analysis_type="gene_annotation",
+                parameters={"genes": gene_list},
+                status="completed",
+                created_at=datetime.utcnow()
+            )
+            
+            self.db.add(analysis_job)
+            self.db.commit()
+            self.db.refresh(analysis_job)
+            
+            # Store results
+            analysis_result_record = AnalysisResult(
+                analysis_job_id=analysis_job.id,
+                result_type="gene_annotation",
+                result_data={
+                    "annotations": annotations,
+                    "proteins": [
+                        {
+                            "accession": p.accession,
+                            "name": p.name,
+                            "function": p.function,
+                            "pathways": p.pathways,
+                            "diseases": p.diseases
+                        }
+                        for p in analysis_result.get('proteins', [])
+                    ],
+                    "pathways": [
+                        {
+                            "pathway_id": pw.pathway_id,
+                            "pathway_name": pw.pathway_name,
+                            "genes": pw.genes,
+                            "category": pw.category
+                        }
+                        for pw in analysis_result.get('pathways', [])
+                    ],
+                    "interactions": [
+                        {
+                            "protein_id": inter.protein_id,
+                            "partners": inter.functional_partners,
+                            "network_score": inter.network_score
+                        }
+                        for inter in analysis_result.get('interactions', [])
+                    ]
+                },
+                created_at=datetime.utcnow()
+            )
+            
+            self.db.add(analysis_result_record)
+            self.db.commit()
+            
+            logger.info(f"Gene annotation completed for job {analysis_job.id}")
+            
+            return {
+                "message": "Gene annotation completed successfully",
+                "analysis_job_id": analysis_job.id,
+                "annotations": annotations,
+                "protein_info": analysis_result_record.result_data.get("proteins", []),
+                "pathway_info": analysis_result_record.result_data.get("pathways", []),
+                "interaction_networks": analysis_result_record.result_data.get("interactions", []),
+                "literature_references": analysis_result.get('literature', [])
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in gene annotation: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Gene annotation failed: {str(e)}"
+            )
+    
+    async def pathway_enrichment_analysis(self, gene_list: List[str], user_id: int) -> Dict[str, Any]:
+        """
+        Perform pathway enrichment analysis using KEGG and other free APIs
+        """
+        try:
+            logger.info(f"Performing pathway enrichment for {len(gene_list)} genes")
+            
+            # Search for pathways related to the genes
+            pathway_results = []
+            
+            # Use the first few genes to search for pathways
+            for gene in gene_list[:5]:  # Limit to avoid rate limits
+                try:
+                    pathways = await self.bio_apis.search_kegg_pathways(gene)
+                    pathway_results.extend(pathways)
+                except Exception as e:
+                    logger.warning(f"Failed to search pathways for {gene}: {e}")
+            
+            # Remove duplicates and analyze
+            unique_pathways = {}
+            for pathway in pathway_results:
+                if pathway.pathway_id not in unique_pathways:
+                    unique_pathways[pathway.pathway_id] = pathway
+            
+            # Calculate enrichment scores (simplified)
+            enrichment_results = []
+            for pathway_id, pathway in unique_pathways.items():
+                # Count overlap between input genes and pathway genes
+                pathway_genes = set(pathway.genes)
+                input_genes = set(gene_list)
+                overlap = pathway_genes.intersection(input_genes)
+                
+                if overlap:
+                    enrichment_score = len(overlap) / len(input_genes)
+                    enrichment_results.append({
+                        'pathway_id': pathway_id,
+                        'pathway_name': pathway.pathway_name,
+                        'category': pathway.category,
+                        'genes_in_pathway': len(pathway.genes),
+                        'genes_overlap': len(overlap),
+                        'enrichment_score': enrichment_score,
+                        'overlapping_genes': list(overlap),
+                        'p_value': self._calculate_enrichment_p_value(
+                            len(overlap), len(input_genes), len(pathway.genes)
+                        )
+                    })
+            
+            # Sort by enrichment score
+            enrichment_results.sort(key=lambda x: x['enrichment_score'], reverse=True)
+            
+            # Create analysis job record
+            analysis_job = AnalysisJob(
+                user_id=user_id,
+                dataset_id=None,
+                analysis_type="pathway_enrichment",
+                parameters={"genes": gene_list},
+                status="completed",
+                created_at=datetime.utcnow()
+            )
+            
+            self.db.add(analysis_job)
+            self.db.commit()
+            self.db.refresh(analysis_job)
+            
+            # Store results
+            analysis_result_record = AnalysisResult(
+                analysis_job_id=analysis_job.id,
+                result_type="pathway_enrichment",
+                result_data={
+                    "enrichment_results": enrichment_results,
+                    "input_genes": gene_list,
+                    "total_pathways_analyzed": len(unique_pathways)
+                },
+                created_at=datetime.utcnow()
+            )
+            
+            self.db.add(analysis_result_record)
+            self.db.commit()
+            
+            logger.info(f"Pathway enrichment analysis completed for job {analysis_job.id}")
+            
+            return {
+                "message": "Pathway enrichment analysis completed successfully",
+                "analysis_job_id": analysis_job.id,
+                "enrichment_results": enrichment_results[:20],  # Return top 20
+                "total_pathways_analyzed": len(unique_pathways),
+                "significant_pathways": len([r for r in enrichment_results if r['p_value'] < 0.05])
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in pathway enrichment analysis: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Pathway enrichment analysis failed: {str(e)}"
+            )
+    
+    def _calculate_enrichment_p_value(self, overlap: int, input_size: int, pathway_size: int) -> float:
+        """
+        Calculate enrichment p-value using hypergeometric test (simplified)
+        """
+        try:
+            from scipy.stats import hypergeom
+            
+            # Simplified hypergeometric test
+            # Parameters: total genes (~20000), pathway genes, input genes, overlap
+            total_genes = 20000
+            p_value = hypergeom.sf(overlap-1, total_genes, pathway_size, input_size)
+            return float(p_value)
+            
+        except ImportError:
+            # Fallback to simple calculation if scipy not available
+            return 1.0 - (overlap / input_size)
+        except Exception:
+            return 1.0
+    
+    async def protein_interaction_network(self, gene_list: List[str], user_id: int) -> Dict[str, Any]:
+        """
+        Build protein-protein interaction network using STRING database
+        """
+        try:
+            logger.info(f"Building PPI network for {len(gene_list)} genes")
+            
+            # Get interactions for each gene
+            all_interactions = []
+            nodes = set()
+            edges = []
+            
+            for gene in gene_list[:10]:  # Limit to avoid rate limits
+                try:
+                    interactions = await self.bio_apis.get_protein_interactions(gene)
+                    if interactions:
+                        all_interactions.append(interactions)
+                        nodes.add(gene)
+                        
+                        # Add edges for network visualization
+                        for interaction in interactions.interactions:
+                            partner = interaction['partner']
+                            score = interaction['score']
+                            
+                            if score > 400:  # Only high-confidence interactions
+                                nodes.add(partner)
+                                edges.append({
+                                    'source': gene,
+                                    'target': partner,
+                                    'weight': score,
+                                    'evidence': interaction.get('evidence', 0)
+                                })
+                                
+                except Exception as e:
+                    logger.warning(f"Failed to get interactions for {gene}: {e}")
+            
+            # Create network statistics
+            network_stats = {
+                'total_nodes': len(nodes),
+                'total_edges': len(edges),
+                'average_degree': len(edges) * 2 / len(nodes) if nodes else 0,
+                'high_confidence_edges': len([e for e in edges if e['weight'] > 700])
+            }
+            
+            # Identify hub genes (genes with many connections)
+            node_degrees = {}
+            for edge in edges:
+                node_degrees[edge['source']] = node_degrees.get(edge['source'], 0) + 1
+                node_degrees[edge['target']] = node_degrees.get(edge['target'], 0) + 1
+            
+            hub_genes = sorted(node_degrees.items(), key=lambda x: x[1], reverse=True)[:10]
+            
+            # Create analysis job record
+            analysis_job = AnalysisJob(
+                user_id=user_id,
+                dataset_id=None,
+                analysis_type="protein_interaction_network",
+                parameters={"genes": gene_list},
+                status="completed",
+                created_at=datetime.utcnow()
+            )
+            
+            self.db.add(analysis_job)
+            self.db.commit()
+            self.db.refresh(analysis_job)
+            
+            # Store results
+            analysis_result_record = AnalysisResult(
+                analysis_job_id=analysis_job.id,
+                result_type="protein_interaction_network",
+                result_data={
+                    "nodes": list(nodes),
+                    "edges": edges,
+                    "network_stats": network_stats,
+                    "hub_genes": hub_genes,
+                    "interactions": [
+                        {
+                            "protein_id": inter.protein_id,
+                            "partners": inter.functional_partners,
+                            "network_score": inter.network_score
+                        }
+                        for inter in all_interactions
+                    ]
+                },
+                created_at=datetime.utcnow()
+            )
+            
+            self.db.add(analysis_result_record)
+            self.db.commit()
+            
+            logger.info(f"PPI network analysis completed for job {analysis_job.id}")
+            
+            return {
+                "message": "Protein interaction network analysis completed successfully",
+                "analysis_job_id": analysis_job.id,
+                "network_stats": network_stats,
+                "hub_genes": hub_genes,
+                "network_data": {
+                    "nodes": [{"id": node, "degree": node_degrees.get(node, 0)} for node in nodes],
+                    "edges": edges
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in PPI network analysis: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"PPI network analysis failed: {str(e)}"
+            )
+    
+    async def find_drug_targets(self, gene_list: List[str], user_id: int) -> Dict[str, Any]:
+        """
+        Find potential drug targets from gene list using free APIs
+        """
+        try:
+            logger.info(f"Finding drug targets for {len(gene_list)} genes")
+            
+            # Use bio_apis_service to find drug targets
+            drug_targets = await self.bio_apis.find_drug_targets(gene_list)
+            
+            # Enhance with additional analysis
+            enhanced_targets = []
+            for target in drug_targets:
+                # Get protein information for the target
+                protein_info = await self.bio_apis.get_protein_info(target['gene'])
+                
+                enhanced_target = {
+                    'gene': target['gene'],
+                    'therapeutic_class': target['therapeutic_class'],
+                    'example_drugs': target['example_drugs'],
+                    'evidence': target['evidence'],
+                    'protein_info': {
+                        'name': protein_info.name if protein_info else "Unknown",
+                        'function': protein_info.function if protein_info else "Unknown",
+                        'diseases': protein_info.diseases if protein_info else []
+                    },
+                    'druggability_score': self._calculate_druggability_score(target)
+                }
+                enhanced_targets.append(enhanced_target)
+            
+            # Create analysis job record
+            analysis_job = AnalysisJob(
+                user_id=user_id,
+                dataset_id=None,
+                analysis_type="drug_target_analysis",
+                parameters={"genes": gene_list},
+                status="completed",
+                created_at=datetime.utcnow()
+            )
+            
+            self.db.add(analysis_job)
+            self.db.commit()
+            self.db.refresh(analysis_job)
+            
+            # Store results
+            analysis_result_record = AnalysisResult(
+                analysis_job_id=analysis_job.id,
+                result_type="drug_target_analysis",
+                result_data={
+                    "drug_targets": enhanced_targets,
+                    "input_genes": gene_list,
+                    "total_targets_found": len(enhanced_targets)
+                },
+                created_at=datetime.utcnow()
+            )
+            
+            self.db.add(analysis_result_record)
+            self.db.commit()
+            
+            logger.info(f"Drug target analysis completed for job {analysis_job.id}")
+            
+            return {
+                "message": "Drug target analysis completed successfully",
+                "analysis_job_id": analysis_job.id,
+                "drug_targets": enhanced_targets,
+                "total_targets_found": len(enhanced_targets),
+                "high_confidence_targets": len([t for t in enhanced_targets if t['druggability_score'] > 0.7])
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in drug target analysis: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Drug target analysis failed: {str(e)}"
+            )
+    
+    def _calculate_druggability_score(self, target: Dict[str, Any]) -> float:
+        """
+        Calculate druggability score based on various factors
+        """
+        score = 0.5  # Base score
+        
+        # Higher score for known drug classes
+        if 'inhibitor' in target['therapeutic_class'].lower():
+            score += 0.2
+        
+        # Higher score if there are existing drugs
+        if target['example_drugs']:
+            score += 0.3
+        
+        # Literature-based evidence
+        if target['evidence'] == 'Literature-based':
+            score += 0.1
+        
+        return min(score, 1.0)
     
     async def upload_dataset(self, user_id: int, file_data: bytes, file_name: str, 
                            metadata: Dict[str, Any]) -> Dict[str, Any]:

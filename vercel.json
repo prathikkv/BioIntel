@@ -4,11 +4,6 @@
   "env": {
     "ENVIRONMENT": "production",
     "DEBUG": "False",
-    "DATABASE_URL": "@database_url",
-    "SECRET_KEY": "@secret_key",
-    "JWT_SECRET_KEY": "@jwt_secret_key",
-    "REDIS_URL": "@redis_url",
-    "SENTRY_DSN": "@sentry_dsn",
     "PYTHONPATH": ".",
     "USE_FREE_AI": "true",
     "HUGGINGFACE_CACHE_DIR": "/tmp/huggingface",

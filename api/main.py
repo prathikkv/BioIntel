@@ -86,7 +86,7 @@ app.add_middleware(
 if settings.ENVIRONMENT == "production":
     app.add_middleware(
         TrustedHostMiddleware, 
-        allowed_hosts=["biointel.ai", "*.biointel.ai"]
+        allowed_hosts=["biointel.ai", "*.biointel.ai", "*.vercel.app"]
     )
 
 # Create database tables
@@ -126,13 +126,42 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Health check endpoint
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for monitoring"""
-    return {
+    """Comprehensive health check endpoint for monitoring"""
+    health_status = {
         "status": "healthy",
         "timestamp": time.time(),
         "version": "1.0.0",
         "environment": settings.ENVIRONMENT
     }
+    
+    # Check database connectivity
+    try:
+        from models.database import engine
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        health_status["database"] = "connected"
+    except Exception as e:
+        health_status["database"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    # Check optional dependencies
+    try:
+        from services.bioinformatics_service import SKLEARN_AVAILABLE, PLOTTING_AVAILABLE
+        from services.free_ai_service import TRANSFORMERS_AVAILABLE
+        from services.reports_service import WEASYPRINT_AVAILABLE, DOCX_AVAILABLE
+        
+        health_status["features"] = {
+            "machine_learning": SKLEARN_AVAILABLE,
+            "plotting": PLOTTING_AVAILABLE,
+            "ai_processing": TRANSFORMERS_AVAILABLE,
+            "pdf_generation": WEASYPRINT_AVAILABLE,
+            "docx_generation": DOCX_AVAILABLE
+        }
+    except Exception as e:
+        health_status["features"] = f"error: {str(e)}"
+    
+    return health_status
 
 # Root endpoint
 @app.get("/")

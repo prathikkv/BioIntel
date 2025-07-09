@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from models.user import User, UserSession, APIKey
+from models.user import User, UserSession
+from models.enterprise import APIKey
 from models.database import get_db
 from utils.security import security_utils
 from utils.logging import get_logger

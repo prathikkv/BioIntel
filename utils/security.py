@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any
 import hashlib
 import hmac
 import secrets
-import jwt
+from jose import jwt
 from passlib.context import CryptContext
 from cryptography.fernet import Fernet
 from email_validator import validate_email, EmailNotValidError

@@ -10,11 +10,16 @@ from datetime import datetime
 
 from services.enterprise_service import enterprise_service
 from services.auth_service import auth_service
-from utils.security import get_current_user
+from services.auth_service import AuthService
 from models.user import User
 
 router = APIRouter()
 security = HTTPBearer()
+
+# Dependency to get current user
+async def get_current_user(token: str = Depends(security)):
+    """Get current user from JWT token"""
+    return await auth_service.get_current_user(token.credentials)
 
 # Request/Response Models
 class TeamCreateRequest(BaseModel):
@@ -23,8 +28,8 @@ class TeamCreateRequest(BaseModel):
     team_type: str = Field(default="research", max_length=50)
 
 class TeamInviteRequest(BaseModel):
-    user_email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
-    role: str = Field(..., regex=r'^(owner|admin|member|viewer)$')
+    user_email: str = Field(..., pattern=r'^[^@]+@[^@]+\.[^@]+$')
+    role: str = Field(..., pattern=r'^(owner|admin|member|viewer)$')
 
 class WorkspaceCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)

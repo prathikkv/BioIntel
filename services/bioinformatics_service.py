@@ -1,15 +1,5 @@
 import pandas as pd
 import numpy as np
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-from scipy.cluster.hierarchy import dendrogram, linkage
-from scipy.spatial.distance import pdist
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.utils import PlotlyJSONEncoder
 import json
 import io
 import base64
@@ -18,6 +8,30 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 import asyncio
 from datetime import datetime
+
+# Optional ML libraries for advanced analysis
+try:
+    from sklearn.decomposition import PCA
+    from sklearn.cluster import KMeans
+    from sklearn.preprocessing import StandardScaler
+    from scipy.cluster.hierarchy import dendrogram, linkage
+    from scipy.spatial.distance import pdist
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    print("⚠️  scikit-learn not available - advanced ML features disabled")
+
+# Optional visualization libraries
+try:
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.utils import PlotlyJSONEncoder
+    PLOTTING_AVAILABLE = True
+except ImportError:
+    PLOTTING_AVAILABLE = False
+    print("⚠️  Plotting libraries not available - visualizations disabled")
 
 from models.database import get_db
 from models.bioinformatics import Dataset, AnalysisJob, AnalysisResult, ExpressionData, GeneAnnotation

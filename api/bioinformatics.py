@@ -23,7 +23,7 @@ class DatasetMetadata(BaseModel):
     experiment_type: Optional[str] = None
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "Breast Cancer RNA-seq",
                 "description": "RNA-seq data from breast cancer patients",
@@ -38,7 +38,7 @@ class PCARequest(BaseModel):
     n_components: int = Field(default=2, ge=2, le=10)
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "dataset_id": 1,
                 "n_components": 2
@@ -47,11 +47,11 @@ class PCARequest(BaseModel):
 
 class ClusteringRequest(BaseModel):
     dataset_id: int
-    method: str = Field(default="kmeans", regex="^(kmeans|hierarchical)$")
+    method: str = Field(default="kmeans", pattern="^(kmeans|hierarchical)$")
     n_clusters: int = Field(default=3, ge=2, le=20)
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "dataset_id": 1,
                 "method": "kmeans",

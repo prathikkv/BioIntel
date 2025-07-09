@@ -1,6 +1,47 @@
 {
   "version": 2,
-  "name": "biointel-ai-backend",
+  "name": "biointel-ai",
+  "build": {
+    "env": {
+      "PYTHON_VERSION": "3.9"
+    }
+  },
+  "builds": [
+    {
+      "src": "requirements-vercel.txt",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "api/main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/docs",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/redoc",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/openapi.json",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/health",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/main.py"
+    }
+  ],
   "env": {
     "ENVIRONMENT": "production",
     "DEBUG": "False",
@@ -17,39 +58,13 @@
     "MAX_PAPER_LENGTH": "100000",
     "MAX_GENES_PER_ANALYSIS": "1000",
     "RATE_LIMIT_REQUESTS": "100",
-    "RATE_LIMIT_WINDOW": "60"
+    "RATE_LIMIT_WINDOW": "60",
+    "LOG_LEVEL": "INFO"
   },
-  "build": {
-    "env": {
-      "ENVIRONMENT": "production"
+  "functions": {
+    "api/main.py": {
+      "maxDuration": 30
     }
   },
-  "builds": [
-    {
-      "src": "api/main.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/main.py"
-    },
-    {
-      "src": "/docs",
-      "dest": "/api/main.py"
-    },
-    {
-      "src": "/redoc", 
-      "dest": "/api/main.py"
-    },
-    {
-      "src": "/openapi.json",
-      "dest": "/api/main.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/api/main.py"
-    }
-  ],
+  "regions": ["iad1"]
 }

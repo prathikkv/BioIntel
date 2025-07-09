@@ -24,7 +24,7 @@ class UserRegistration(BaseModel):
     consent_given: bool = False
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "email": "researcher@university.edu",
                 "password": "SecurePass123!",
@@ -42,7 +42,7 @@ class UserLogin(BaseModel):
     password: str
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "email": "researcher@university.edu",
                 "password": "SecurePass123!"
@@ -64,7 +64,7 @@ class APIKeyRequest(BaseModel):
     permissions: Optional[Dict[str, Any]] = None
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "key_name": "Analysis API Key",
                 "permissions": {

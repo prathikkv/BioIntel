@@ -23,10 +23,10 @@ router = APIRouter()
 
 # Pydantic models
 class ReportRequest(BaseModel):
-    report_type: str = Field(..., regex="^(analysis|literature|combined)$")
+    report_type: str = Field(..., pattern="^(analysis|literature|combined)$")
     title: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
-    format_type: str = Field(default="html", regex="^(html|pdf|docx)$")
+    format_type: str = Field(default="html", pattern="^(html|pdf|docx)$")
     
     # Data source IDs
     dataset_ids: Optional[List[int]] = None
@@ -40,7 +40,7 @@ class ReportRequest(BaseModel):
     include_methodology: bool = True
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "report_type": "analysis",
                 "title": "Gene Expression Analysis Report",

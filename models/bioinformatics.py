@@ -251,8 +251,8 @@ class AnalysisResult(Base):
     result_data = Column(JSON, nullable=True)
     result_file_path = Column(String(500), nullable=True)
     
-    # Metadata
-    metadata = Column(JSON, nullable=True)
+    # Analysis metadata
+    analysis_metadata = Column(JSON, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -269,7 +269,7 @@ class AnalysisResult(Base):
             "result_name": self.result_name,
             "result_data": self.result_data,
             "result_file_path": self.result_file_path,
-            "metadata": self.metadata,
+            "analysis_metadata": self.analysis_metadata,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
     

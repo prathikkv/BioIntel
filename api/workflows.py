@@ -9,11 +9,16 @@ from pydantic import BaseModel, Field
 
 from services.research_workflows_service import research_workflows_service
 from services.analysis_templates_service import analysis_templates_service
-from utils.security import get_current_user
+from services.auth_service import auth_service
 from models.user import User
 
 router = APIRouter()
 security = HTTPBearer()
+
+# Dependency to get current user
+async def get_current_user(token: str = Depends(security)):
+    """Get current user from JWT token"""
+    return await auth_service.get_current_user(token.credentials)
 
 # Request/Response Models
 class WorkflowExecuteRequest(BaseModel):

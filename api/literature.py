@@ -25,7 +25,7 @@ class AbstractRequest(BaseModel):
     source_url: Optional[HttpUrl] = None
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "abstract": "Background: Cancer is a leading cause of death worldwide. This study investigates novel biomarkers for early detection. Methods: We analyzed RNA-seq data from 500 patients. Results: We identified 15 genes significantly associated with cancer progression. Conclusion: These biomarkers show promise for clinical application.",
                 "title": "Novel Biomarkers for Cancer Detection",
@@ -42,7 +42,7 @@ class ChatRequest(BaseModel):
     session_id: Optional[int] = None
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "question": "What biomarkers were identified in this study?",
                 "session_id": 1

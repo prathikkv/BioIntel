@@ -30,64 +30,26 @@
       "use": "@vercel/python"
     }
   ],
-  "headers": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        },
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=31536000; includeSubDomains"
-        }
-      ]
+      "src": "/api/(.*)",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/docs",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/redoc", 
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/openapi.json",
+      "dest": "/api/main.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/main.py"
     }
   ],
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
-      "source": "/docs",
-      "destination": "/api/docs"
-    },
-    {
-      "source": "/redoc",
-      "destination": "/api/redoc"
-    },
-    {
-      "source": "/openapi.json",
-      "destination": "/api/openapi.json"
-    }
-  ],
-  "redirects": [
-    {
-      "source": "/",
-      "destination": "/api/health",
-      "permanent": false
-    }
-  ]
 }

@@ -1,67 +1,66 @@
 # FastAPI and Web Framework (Core)
-fastapi==0.104.1
-uvicorn==0.24.0
-python-multipart==0.0.6
-starlette==0.27.0
+fastapi>=0.104.1
+uvicorn>=0.24.0
+python-multipart>=0.0.6
+starlette>=0.27.0
 
 # Database and ORM (Core)
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-alembic==1.13.0
+sqlalchemy>=2.0.23
+psycopg2-binary>=2.9.9
+alembic>=1.13.0
 
-# Authentication and Security (Core)
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-pydantic[email]==2.5.0
+# Authentication and Security (Core - Python 3.12 compatible)
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+pydantic[email]>=2.5.0
 
 # Essential Data Processing (Minimal)
-pandas==2.1.3
-numpy==1.26.2
+pandas>=2.1.3
+numpy>=1.26.2
 
 # Redis and Caching (Core)
-redis==5.0.1
+redis>=5.0.1
 
 # Async and Background Tasks (Core)
-aiofiles==23.2.1
-httpx==0.25.2
-aiohttp==3.9.1
+aiofiles>=23.2.1
+httpx>=0.25.2
+aiohttp>=3.9.1
 
 # File Processing (Essential)
-PyPDF2==3.0.1
-openpyxl==3.1.2
+PyPDF2>=3.0.1
+openpyxl>=3.1.2
 
 # Image Processing (Essential)
-Pillow==10.1.0
+Pillow>=10.1.0
 
 # Bioinformatics APIs and Data Processing (Essential)
-xmltodict==0.13.0
-beautifulsoup4==4.12.2
-lxml==4.9.3
+xmltodict>=0.13.0
+beautifulsoup4>=4.12.2
+lxml>=4.9.3
 
 # Validation and Serialization (Core)
-pydantic==2.5.0
-pydantic-settings==2.1.0
+pydantic-settings>=2.1.0
 
 # Monitoring and Logging (Core)
-structlog==23.2.0
-python-dotenv==1.0.0
+structlog>=23.2.0
+python-dotenv>=1.0.0
 
-# Security (Core)
-cryptography==41.0.8
-bcrypt==4.1.2
-itsdangerous==2.1.2
+# Security (Core - Python 3.12 compatible versions)
+cryptography>=43.0.0
+bcrypt>=4.2.0
+itsdangerous>=2.1.2
 
 # Environment and Configuration (Core)
-click==8.1.7
+click>=8.1.7
 
 # Report Generation (Core)
-jinja2==3.1.2
+jinja2>=3.1.2
 
 # Data Validation (Core)
-email-validator==2.1.0
+email-validator>=2.1.0
 
 # CORS and Middleware (Core)
-slowapi==0.1.8
+slowapi>=0.1.8
 
 # Lightweight HTTP client
-requests==2.31.0
+requests>=2.31.0

@@ -6,12 +6,6 @@
       "PYTHON_VERSION": "3.9"
     }
   },
-  "builds": [
-    {
-      "src": "api/main.py",
-      "use": "@vercel/python"
-    }
-  ],
   "routes": [
     {
       "src": "/api/(.*)",

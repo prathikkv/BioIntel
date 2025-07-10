@@ -137,78 +137,179 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
     
     def _handle_request(self):
-        """Handle all HTTP requests safely"""
+        """Handle all HTTP requests by delegating to FastAPI"""
         try:
             if not FASTAPI_AVAILABLE or not app:
                 self._send_error_response(500, "FastAPI not available")
                 return
             
-            # Parse request
+            # Create ASGI scope for FastAPI
+            from io import BytesIO
+            import asyncio
+            
+            # Read request body for POST requests
+            content_length = int(self.headers.get('content-length', 0))
+            request_body = b''
+            if content_length > 0:
+                request_body = self.rfile.read(content_length)
+            
+            # Parse URL
             parsed_url = urlparse(self.path)
             path = parsed_url.path
+            query_string = parsed_url.query.encode() if parsed_url.query else b''
             
-            # Basic routing
-            if path == "/" or path == "":
-                response_data = {
-                    "message": "Welcome to BioIntel.AI",
-                    "description": "Free AI-powered bioinformatics platform", 
-                    "version": "1.0.0",
-                    "status": "running",
-                    "timestamp": time.time(),
-                    "endpoints": {
-                        "health": "/health",
-                        "docs": "/docs",
-                        "auth_register": "/api/auth/register",
-                        "auth_login": "/api/auth/login"
-                    }
+            # Create ASGI scope
+            scope = {
+                "type": "http",
+                "method": self.command,
+                "path": path,
+                "query_string": query_string,
+                "headers": [
+                    (name.lower().encode(), value.encode()) 
+                    for name, value in self.headers.items()
+                ],
+                "server": ("localhost", 8000),
+                "client": (self.client_address[0], self.client_address[1])
+            }
+            
+            # Async receive callable
+            async def receive():
+                return {
+                    "type": "http.request",
+                    "body": request_body,
+                    "more_body": False
                 }
-                self._send_json_response(200, response_data)
+            
+            # Response data
+            response_data = {
+                "status": 200,
+                "headers": [],
+                "body": b""
+            }
+            
+            # Async send callable  
+            async def send(message):
+                if message["type"] == "http.response.start":
+                    response_data["status"] = message["status"]
+                    response_data["headers"] = message.get("headers", [])
+                elif message["type"] == "http.response.body":
+                    response_data["body"] += message.get("body", b"")
+            
+            # Run FastAPI app
+            async def run_app():
+                await app(scope, receive, send)
+            
+            # Execute async
+            try:
+                asyncio.run(run_app())
                 
-            elif path == "/health":
-                response_data = {
-                    "status": "healthy",
-                    "timestamp": time.time(),
-                    "version": "1.0.0",
-                    "environment": os.getenv("ENVIRONMENT", "production")
-                }
-                self._send_json_response(200, response_data)
+                # Send response
+                self.send_response(response_data["status"])
+                self._send_cors_headers()
                 
-            elif path == "/api/auth/register" and self.command == "POST":
-                response_data = {
-                    "message": "Registration endpoint ready",
-                    "status": "service_initializing",
-                    "timestamp": time.time()
-                }
-                self._send_json_response(200, response_data)
+                # Send headers
+                for header_name, header_value in response_data["headers"]:
+                    self.send_header(header_name.decode(), header_value.decode())
                 
-            elif path == "/api/auth/login" and self.command == "POST":
-                response_data = {
-                    "message": "Login endpoint ready", 
-                    "status": "service_initializing",
-                    "timestamp": time.time()
-                }
-                self._send_json_response(200, response_data)
+                self.end_headers()
                 
-            else:
-                # 404 for unknown paths
-                response_data = {
-                    "error": "Not Found",
-                    "path": path,
-                    "method": self.command,
-                    "available_endpoints": [
-                        "/",
-                        "/health", 
-                        "/docs",
-                        "/api/auth/register",
-                        "/api/auth/login"
-                    ],
-                    "timestamp": time.time()
-                }
-                self._send_json_response(404, response_data)
+                # Send body
+                if response_data["body"]:
+                    self.wfile.write(response_data["body"])
+                    
+            except Exception as fastapi_error:
+                print(f"FastAPI execution error: {fastapi_error}")
+                # Fallback to simple routing for critical endpoints
+                self._handle_fallback_routing()
                 
         except Exception as e:
             print(f"Request handling error: {e}")
             self._send_error_response(500, f"Internal server error: {str(e)}")
+    
+    def _handle_fallback_routing(self):
+        """Fallback routing when FastAPI delegation fails"""
+        parsed_url = urlparse(self.path)
+        path = parsed_url.path
+        
+        if path == "/" or path == "":
+            response_data = {
+                "message": "Welcome to BioIntel.AI",
+                "description": "Free AI-powered bioinformatics platform", 
+                "version": "1.0.0",
+                "status": "running",
+                "timestamp": time.time(),
+                "endpoints": {
+                    "health": "/health",
+                    "docs": "/docs",
+                    "auth_register": "/api/auth/register (POST)",
+                    "auth_login": "/api/auth/login (POST)"
+                }
+            }
+            self._send_json_response(200, response_data)
+            
+        elif path == "/health":
+            response_data = {
+                "status": "healthy",
+                "timestamp": time.time(),
+                "version": "1.0.0",
+                "environment": os.getenv("ENVIRONMENT", "production")
+            }
+            self._send_json_response(200, response_data)
+            
+        elif path in ["/api/auth/register", "/api/auth/registration"] and self.command == "POST":
+            # Handle both register and registration paths
+            response_data = {
+                "message": "Registration endpoint ready",
+                "note": "Use POST /api/auth/register with JSON body: {\"email\": \"user@example.com\", \"password\": \"pass123\", \"full_name\": \"Name\"}",
+                "status": "service_initializing",
+                "timestamp": time.time()
+            }
+            self._send_json_response(200, response_data)
+            
+        elif path == "/api/auth/login" and self.command == "POST":
+            response_data = {
+                "message": "Login endpoint ready",
+                "note": "Use POST /api/auth/login with JSON body: {\"email\": \"user@example.com\", \"password\": \"pass123\"}",
+                "status": "service_initializing", 
+                "timestamp": time.time()
+            }
+            self._send_json_response(200, response_data)
+            
+        elif path in ["/api/auth/register", "/api/auth/registration", "/api/auth/login"] and self.command == "GET":
+            # Helpful error for wrong HTTP method
+            response_data = {
+                "error": "Method Not Allowed",
+                "message": f"Endpoint {path} requires POST request, not GET",
+                "correct_usage": f"POST {path}",
+                "content_type": "application/json",
+                "example_body": {
+                    "email": "user@example.com",
+                    "password": "your_password",
+                    "full_name": "Your Name" if "register" in path else None
+                },
+                "timestamp": time.time()
+            }
+            # Remove None values
+            response_data["example_body"] = {k: v for k, v in response_data["example_body"].items() if v is not None}
+            self._send_json_response(405, response_data)
+            
+        else:
+            # 404 for unknown paths
+            response_data = {
+                "error": "Not Found",
+                "path": path,
+                "method": self.command,
+                "available_endpoints": [
+                    "/",
+                    "/health", 
+                    "/docs",
+                    "POST /api/auth/register",
+                    "POST /api/auth/login"
+                ],
+                "note": "Authentication endpoints require POST requests",
+                "timestamp": time.time()
+            }
+            self._send_json_response(404, response_data)
     
     def _send_json_response(self, status_code, data):
         """Send JSON response"""

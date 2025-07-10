@@ -8,51 +8,44 @@
   },
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/main.py"
-    },
-    {
-      "src": "/docs",
-      "dest": "/api/main.py"
-    },
-    {
-      "src": "/redoc",
-      "dest": "/api/main.py"
-    },
-    {
-      "src": "/openapi.json",
-      "dest": "/api/main.py"
-    },
-    {
       "src": "/health",
-      "dest": "/api/main.py"
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/api/health",
+      "dest": "/api/index.py"
     },
     {
       "src": "/(.*)",
-      "dest": "/api/main.py"
+      "dest": "/api/index.py"
     }
   ],
   "env": {
     "ENVIRONMENT": "production",
     "DEBUG": "False",
     "PYTHONPATH": ".",
+    "DATABASE_URL": "sqlite:///./biointel.db",
+    "SECRET_KEY": "vercel-production-secret-key-change-me",
+    "JWT_SECRET_KEY": "vercel-jwt-secret-key-change-me",
+    "JWT_ALGORITHM": "HS256",
+    "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
+    "REFRESH_TOKEN_EXPIRE_DAYS": "7",
     "USE_FREE_AI": "true",
-    "HUGGINGFACE_CACHE_DIR": "/tmp/huggingface",
-    "TORCH_CACHE_DIR": "/tmp/torch",
     "PUBMED_BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
     "UNIPROT_BASE_URL": "https://rest.uniprot.org",
     "ENSEMBL_BASE_URL": "https://rest.ensembl.org",
     "STRING_BASE_URL": "https://string-db.org/api",
     "KEGG_BASE_URL": "https://rest.kegg.jp",
-    "MAX_FILE_SIZE": "50000000",
-    "MAX_PAPER_LENGTH": "100000",
-    "MAX_GENES_PER_ANALYSIS": "1000",
-    "RATE_LIMIT_REQUESTS": "100",
+    "MAX_FILE_SIZE": "10000000",
+    "MAX_PAPER_LENGTH": "50000",
+    "MAX_GENES_PER_ANALYSIS": "100",
+    "RATE_LIMIT_REQUESTS": "50",
     "RATE_LIMIT_WINDOW": "60",
-    "LOG_LEVEL": "INFO"
+    "LOG_LEVEL": "INFO",
+    "CORS_ORIGINS": "[\"*\"]"
   },
   "functions": {
-    "api/main.py": {
+    "api/index.py": {
       "maxDuration": 30
     }
   },

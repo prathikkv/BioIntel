@@ -7,8 +7,15 @@ import hashlib
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 import PyPDF2
-import pdfplumber
 from io import BytesIO
+
+# Conditional import for pdfplumber (better PDF parsing)
+try:
+    import pdfplumber
+    PDFPLUMBER_AVAILABLE = True
+except ImportError:
+    PDFPLUMBER_AVAILABLE = False
+    print("⚠️  pdfplumber not available - falling back to PyPDF2 for PDF parsing")
 import httpx
 
 from models.database import get_db
@@ -203,11 +210,15 @@ class LiteratureService:
         
         try:
             # Try pdfplumber first (better for complex layouts)
-            with pdfplumber.open(BytesIO(pdf_data)) as pdf:
-                for page in pdf.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
+            if PDFPLUMBER_AVAILABLE:
+                with pdfplumber.open(BytesIO(pdf_data)) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text += page_text + "\n"
+            else:
+                # Skip pdfplumber if not available, go directly to PyPDF2
+                raise Exception("pdfplumber not available, using PyPDF2")
         except Exception as e:
             logger.warning(f"pdfplumber failed: {str(e)}, trying PyPDF2")
             

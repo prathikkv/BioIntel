@@ -1,0 +1,80 @@
+# Database files (not needed in production)
+*.db
+*.sqlite
+*.sqlite3
+test.db
+biointel.db
+
+# Development files
+requirements-full.txt
+.env
+.env.example
+.env.local
+.env.development
+
+# Testing files
+tests/
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Development tools
+.vscode/
+.idea/
+*.pyc
+__pycache__/
+.DS_Store
+Thumbs.db
+
+# Docker files (not needed for Vercel)
+Dockerfile
+Dockerfile.frontend
+docker-compose.yml
+nginx.conf
+init.sql
+
+# Build and cache directories
+build/
+dist/
+*.egg-info/
+.cache/
+.pytest_cache/
+
+# Logs
+logs/
+*.log
+
+# Screenshots and images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.svg
+Screenshot*
+
+# Documentation (keep only essential)
+README.md
+LICENSE
+DEPLOYMENT_GUIDE.md
+FREE_DEPLOYMENT_GUIDE.md
+PRODUCTION_READY.md
+QUICK_DEPLOY.md
+error.md
+
+# Scripts not needed in production
+deploy.sh
+setup_production_db.py
+setup_vercel_env.sh
+generate_secrets.py
+
+# Frontend (separate deployment)
+frontend/
+
+# Migration files (handled by auto-migration)
+migrations/
+
+# Templates (keep these - needed for reports)
+# templates/

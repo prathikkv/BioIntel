@@ -1,5 +1,12 @@
-import pandas as pd
-import numpy as np
+# Conditional imports for data analysis libraries
+try:
+    import pandas as pd
+    import numpy as np
+    DATA_ANALYSIS_AVAILABLE = True
+except ImportError:
+    DATA_ANALYSIS_AVAILABLE = False
+    print("⚠️  pandas and numpy not available - data analysis features disabled")
+
 import json
 import io
 import base64
@@ -479,6 +486,11 @@ class BioinformaticsService:
     async def upload_dataset(self, user_id: int, file_data: bytes, file_name: str, 
                            metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Upload and validate gene expression dataset"""
+        if not DATA_ANALYSIS_AVAILABLE:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="Data analysis libraries not available. Please use the full version for dataset upload."
+            )
         try:
             # Validate file type
             if not security_utils.validate_file_type(file_name):
@@ -671,6 +683,11 @@ class BioinformaticsService:
     
     async def perform_eda(self, dataset_id: int, user_id: int) -> Dict[str, Any]:
         """Perform exploratory data analysis"""
+        if not DATA_ANALYSIS_AVAILABLE:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="Data analysis libraries not available. Please use the full version for exploratory data analysis."
+            )
         try:
             # Get dataset
             dataset = self.db.query(Dataset).filter(
@@ -809,6 +826,11 @@ class BioinformaticsService:
     
     async def perform_pca(self, dataset_id: int, user_id: int, n_components: int = 2) -> Dict[str, Any]:
         """Perform Principal Component Analysis"""
+        if not DATA_ANALYSIS_AVAILABLE:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="Data analysis libraries not available. Please use the full version for PCA analysis."
+            )
         try:
             # Get dataset
             dataset = self.db.query(Dataset).filter(
@@ -913,6 +935,11 @@ class BioinformaticsService:
     async def perform_clustering(self, dataset_id: int, user_id: int, 
                                method: str = "kmeans", n_clusters: int = 3) -> Dict[str, Any]:
         """Perform clustering analysis"""
+        if not DATA_ANALYSIS_AVAILABLE:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="Data analysis libraries not available. Please use the full version for clustering analysis."
+            )
         try:
             # Get dataset
             dataset = self.db.query(Dataset).filter(

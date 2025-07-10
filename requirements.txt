@@ -40,13 +40,11 @@ jinja2>=3.1.2
 # Logging
 structlog>=23.2.0
 
-# Essential Data Science (Lightweight)
-pandas>=2.0.0
-numpy>=1.24.0
-
-# PDF Processing
+# PDF Processing (Lightweight)
 PyPDF2>=3.0.0
-pdfplumber>=0.11.0
+
+# Note: pandas, numpy, pdfplumber removed for Vercel size constraints
+# Services will fall back to basic implementations when these are unavailable
 
 # Note: Heavy ML libraries (torch, transformers, sklearn) excluded for Vercel
 # These will be made optional and fall back to simpler implementations

@@ -8,7 +8,14 @@ from pathlib import Path
 import io
 import base64
 
-import pandas as pd
+# Conditional imports for data analysis libraries
+try:
+    import pandas as pd
+    DATA_ANALYSIS_AVAILABLE = True
+except ImportError:
+    DATA_ANALYSIS_AVAILABLE = False
+    print("⚠️  pandas not available - some report features disabled")
+
 from jinja2 import Environment, FileSystemLoader, Template
 
 # Conditional imports for visualization libraries

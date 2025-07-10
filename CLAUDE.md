@@ -10,6 +10,12 @@ BioIntel.AI is a free AI-powered bioinformatics platform for gene expression ana
 
 ### Backend Development
 ```bash
+# Install dependencies (development - includes all ML libraries)
+pip install -r requirements-full.txt
+
+# Install dependencies (production - lightweight for Vercel)
+pip install -r requirements.txt
+
 # Start the main FastAPI application
 uvicorn api.main:app --reload --port 8000
 

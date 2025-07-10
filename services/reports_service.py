@@ -9,9 +9,17 @@ import io
 import base64
 
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 from jinja2 import Environment, FileSystemLoader, Template
+
+# Conditional imports for visualization libraries
+try:
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    PLOTTING_AVAILABLE = True
+except ImportError:
+    PLOTTING_AVAILABLE = False
+    print("Plotting libraries not available - visualization generation disabled")
+
 try:
     from weasyprint import HTML, CSS
     WEASYPRINT_AVAILABLE = True

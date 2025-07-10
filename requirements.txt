@@ -1,65 +1,52 @@
-# FastAPI and Web Framework (Essential)
+# Production Requirements (Vercel-Optimized, Under 250MB)
+# For development with full ML libraries, use: pip install -r requirements-full.txt
+# Core FastAPI and Web Framework
 fastapi>=0.104.1
 uvicorn>=0.24.0
 python-multipart>=0.0.6
 
-# Database and ORM (Essential)
+# Database and ORM
 sqlalchemy>=2.0.23
 psycopg2-binary>=2.9.9
-alembic>=1.13.0
 
-# Authentication and Security (Essential)
+# Authentication and Security
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 pydantic[email]>=2.5.0
 
-# Redis and Caching (Essential)
-redis>=5.0.1
-
-# HTTP Client (Essential)
+# HTTP Client
 httpx>=0.25.2
 requests>=2.31.0
 aiohttp>=3.8.0
 
-# Security (Essential)
+# Security
 cryptography>=43.0.0
 bcrypt>=4.2.0
 itsdangerous>=2.1.2
 
-# Configuration (Essential)
+# Configuration
 python-dotenv>=1.0.0
 pydantic-settings>=2.1.0
 
-# Basic File Processing (Lightweight)
-python-multipart>=0.0.6
-
-# Data Validation (Essential)
+# Data Validation
 email-validator>=2.1.0
 
-# CORS and Rate Limiting (Essential)
+# CORS and Rate Limiting
 slowapi>=0.1.8
 
-# Environment and Configuration (Essential)
-click>=8.1.7
-
-# Report Generation (Lightweight)
+# Report Generation
 jinja2>=3.1.2
 
-# Logging (Lightweight)
+# Logging
 structlog>=23.2.0
 
-# Data Science and Machine Learning (Essential)
+# Essential Data Science (Lightweight)
 pandas>=2.0.0
 numpy>=1.24.0
-scikit-learn>=1.3.0
-scipy>=1.11.0
-matplotlib>=3.6.0
-seaborn>=0.12.0
-plotly>=5.15.0
 
-# PDF Processing (Essential)
+# PDF Processing
 PyPDF2>=3.0.0
+pdfplumber>=0.11.0
 
-# AI and NLP (For free AI features)
-transformers>=4.30.0
-torch>=2.0.0
+# Note: Heavy ML libraries (torch, transformers, sklearn) excluded for Vercel
+# These will be made optional and fall back to simpler implementations

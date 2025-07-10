@@ -113,35 +113,56 @@ if FASTAPI_AVAILABLE:
         """API health check endpoint"""
         return await health_check()
     
-    # Basic user info endpoint
-    @app.get("/api/user/me") 
-    async def get_current_user():
-        """Get current user information (placeholder)"""
-        return {
-            "message": "Authentication system ready",
-            "user": "anonymous",
-            "timestamp": time.time()
-        }
+    # Import and include routers with error handling (Vercel-compatible)
+    ROUTERS_LOADED = []
     
-    # Literature endpoints placeholder
-    @app.get("/api/literature/summaries")
-    async def list_summaries():
-        """List literature summaries (placeholder)"""
-        return {
-            "summaries": [],
-            "count": 0,
-            "message": "Literature processing system ready"
-        }
+    # Load authentication router (essential, lightweight)
+    try:
+        from api.auth import router as auth_router
+        app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
+        ROUTERS_LOADED.append("auth")
+    except ImportError as e:
+        print(f"Warning: Could not load auth router: {e}")
     
-    # Bioinformatics endpoints placeholder  
-    @app.get("/api/bio/genes/{gene_id}")
-    async def get_gene_info(gene_id: str):
-        """Get gene information (placeholder)"""
-        return {
-            "gene_id": gene_id,
-            "message": "Bioinformatics API system ready",
-            "data": "Placeholder - will connect to external APIs"
-        }
+    # Load other routers with individual error handling
+    try:
+        from api.reports import router as reports_router
+        app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
+        ROUTERS_LOADED.append("reports")
+    except ImportError as e:
+        print(f"Warning: Could not load reports router: {e}")
+        
+    # Skip heavy ML routers for Vercel deployment (transformers, torch dependencies)
+    if os.getenv("ENVIRONMENT") != "production":
+        try:
+            from api.bioinformatics import router as bio_router  
+            from api.literature import router as lit_router
+            app.include_router(bio_router, prefix="/api/bioinformatics", tags=["bioinformatics"])
+            app.include_router(lit_router, prefix="/api/literature", tags=["literature"])
+            ROUTERS_LOADED.extend(["bioinformatics", "literature"])
+        except ImportError as e:
+            print(f"Warning: Could not load ML routers (expected in production): {e}")
+    
+    print(f"Routers loaded: {ROUTERS_LOADED}")
+    
+    # Always provide fallback endpoints for missing features
+    if "bioinformatics" not in ROUTERS_LOADED:
+        @app.get("/api/bioinformatics/datasets")
+        async def list_datasets_fallback():
+            return {"datasets": [], "message": "Bioinformatics service initializing"}
+            
+        @app.post("/api/bioinformatics/analyze")
+        async def analyze_fallback():
+            return {"message": "Analysis service temporarily unavailable"}
+    
+    if "literature" not in ROUTERS_LOADED:
+        @app.get("/api/literature/summaries")
+        async def list_summaries_fallback():
+            return {"summaries": [], "message": "Literature service initializing"}
+            
+        @app.post("/api/literature/summarize")
+        async def summarize_fallback():
+            return {"message": "Literature service temporarily unavailable"}
 
 else:
     # Fallback if FastAPI not available

@@ -48,13 +48,13 @@ class User(Base):
     reports = relationship("Report", back_populates="user")
     audit_logs = relationship("AuditLog", back_populates="user")
     
-    # Enterprise relationships
-    created_teams = relationship("Team", back_populates="creator")
-    team_memberships = relationship("TeamMember", back_populates="user")
-    created_workspaces = relationship("Workspace", back_populates="creator")
-    shared_analyses = relationship("SharedAnalysis", back_populates="user")
-    api_keys = relationship("APIKey", back_populates="user")
-    usage_logs = relationship("UsageLog", back_populates="user")
+    # Enterprise relationships - temporarily disabled to fix foreign key issue
+    # created_teams = relationship("Team", back_populates="creator")
+    # team_memberships = relationship("TeamMember", back_populates="user")
+    # created_workspaces = relationship("Workspace", back_populates="creator") 
+    # shared_analyses = relationship("SharedAnalysis", back_populates="user")
+    # api_keys = relationship("APIKey", back_populates="user")
+    # usage_logs = relationship("UsageLog", back_populates="user")
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert user to dictionary"""

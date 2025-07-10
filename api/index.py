@@ -204,7 +204,18 @@ class handler(BaseHTTPRequestHandler):
                     "timestamp": time.time(),
                     "environment": os.getenv("ENVIRONMENT", "production"),
                     "fastapi_available": True,
-                    "endpoints": ["/health", "/docs", "/redoc", "/api/health"]
+                    "endpoints": {
+                        "health": "/health",
+                        "docs": "/docs",
+                        "redoc": "/redoc",
+                        "openapi": "/openapi.json"
+                    },
+                    "features": {
+                        "authentication": "Available",
+                        "literature_processing": "Available", 
+                        "bioinformatics_apis": "Available",
+                        "report_generation": "Available"
+                    }
                 }
                 self._send_json_response(200, response_data)
                 

@@ -60,7 +60,9 @@ class SecurityUtils:
         else:
             self.pwd_context = None
         
-        # Initialize Redis client
+        # Initialize Redis client and memory cache
+        self._memory_cache = {}  # Always initialize memory cache
+        
         if REDIS_AVAILABLE:
             try:
                 self.redis_client = redis.from_url(settings.REDIS_URL)
@@ -68,8 +70,6 @@ class SecurityUtils:
                 self.redis_client = None
         else:
             self.redis_client = None
-            # Use in-memory cache as fallback
-            self._memory_cache = {}
         
         # Initialize encryption
         if FERNET_AVAILABLE:
@@ -208,6 +208,11 @@ class SecurityUtils:
     
     def revoke_token(self, token: str):
         """Revoke a token by adding it to blacklist"""
+        if not self.redis_client:
+            # Use memory cache
+            self._memory_cache[f"blacklist:{token}"] = "revoked"
+            return
+            
         try:
             payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
             exp = payload.get("exp")
@@ -221,10 +226,21 @@ class SecurityUtils:
                 )
         except jwt.JWTError:
             pass
+        except Exception:
+            # Fallback to memory cache
+            self._memory_cache[f"blacklist:{token}"] = "revoked"
     
     def is_token_blacklisted(self, token: str) -> bool:
         """Check if token is blacklisted"""
-        return bool(self.redis_client.get(f"blacklist:{token}"))
+        if not self.redis_client:
+            # Use memory cache
+            return f"blacklist:{token}" in self._memory_cache
+            
+        try:
+            return bool(self.redis_client.get(f"blacklist:{token}"))
+        except Exception:
+            # Fallback to memory cache
+            return f"blacklist:{token}" in self._memory_cache
     
     # Data encryption utilities
     def encrypt_data(self, data: str) -> str:
@@ -295,35 +311,59 @@ class SecurityUtils:
         limit = limit or settings.RATE_LIMIT_REQUESTS
         window = window or settings.RATE_LIMIT_WINDOW
         
-        key = f"rate_limit:{identifier}"
-        current = self.redis_client.get(key)
-        
-        if current is None:
-            # First request
-            self.redis_client.setex(key, window, 1)
+        # If Redis is not available, always allow (for development)
+        if not self.redis_client:
             return {
                 "allowed": True,
                 "remaining": limit - 1,
                 "reset_time": datetime.utcnow() + timedelta(seconds=window)
             }
         
-        current_count = int(current)
-        
-        if current_count >= limit:
+        try:
+            key = f"rate_limit:{identifier}"
+            current = self.redis_client.get(key)
+        except Exception:
+            # If Redis connection fails, allow request
             return {
-                "allowed": False,
-                "remaining": 0,
-                "reset_time": datetime.utcnow() + timedelta(seconds=self.redis_client.ttl(key))
+                "allowed": True,
+                "remaining": limit - 1,
+                "reset_time": datetime.utcnow() + timedelta(seconds=window)
             }
         
-        # Increment counter
-        self.redis_client.incr(key)
-        
-        return {
-            "allowed": True,
-            "remaining": limit - current_count - 1,
-            "reset_time": datetime.utcnow() + timedelta(seconds=self.redis_client.ttl(key))
-        }
+        try:
+            if current is None:
+                # First request
+                self.redis_client.setex(key, window, 1)
+                return {
+                    "allowed": True,
+                    "remaining": limit - 1,
+                    "reset_time": datetime.utcnow() + timedelta(seconds=window)
+                }
+            
+            current_count = int(current)
+            
+            if current_count >= limit:
+                return {
+                    "allowed": False,
+                    "remaining": 0,
+                    "reset_time": datetime.utcnow() + timedelta(seconds=self.redis_client.ttl(key))
+                }
+            
+            # Increment counter
+            self.redis_client.incr(key)
+            
+            return {
+                "allowed": True,
+                "remaining": limit - current_count - 1,
+                "reset_time": datetime.utcnow() + timedelta(seconds=self.redis_client.ttl(key))
+            }
+        except Exception:
+            # If any Redis operation fails, allow the request
+            return {
+                "allowed": True,
+                "remaining": limit - 1,
+                "reset_time": datetime.utcnow() + timedelta(seconds=window)
+            }
     
     # Session utilities
     def generate_session_id(self) -> str:
@@ -341,33 +381,77 @@ class SecurityUtils:
     # Account security utilities
     def track_failed_login(self, identifier: str):
         """Track failed login attempts"""
-        key = f"failed_login:{identifier}"
-        current = self.redis_client.get(key)
-        
-        if current is None:
-            self.redis_client.setex(key, 3600, 1)  # 1 hour window
-        else:
-            self.redis_client.incr(key)
+        if not self.redis_client:
+            # If Redis not available, use in-memory cache
+            key = f"failed_login:{identifier}"
+            current = self._memory_cache.get(key, 0)
+            self._memory_cache[key] = current + 1
+            return
+            
+        try:
+            key = f"failed_login:{identifier}"
+            current = self.redis_client.get(key)
+            
+            if current is None:
+                self.redis_client.setex(key, 3600, 1)  # 1 hour window
+            else:
+                self.redis_client.incr(key)
+        except Exception:
+            # Fallback to memory cache
+            key = f"failed_login:{identifier}"
+            current = self._memory_cache.get(key, 0)
+            self._memory_cache[key] = current + 1
     
     def is_account_locked(self, identifier: str) -> bool:
         """Check if account is locked due to failed attempts"""
         key = f"failed_login:{identifier}"
-        current = self.redis_client.get(key)
         
-        if current is None:
-            return False
-        
-        return int(current) >= 5  # Lock after 5 failed attempts
+        if not self.redis_client:
+            # Use memory cache
+            current = self._memory_cache.get(key, 0)
+            return current >= 5  # Lock after 5 failed attempts
+            
+        try:
+            current = self.redis_client.get(key)
+            
+            if current is None:
+                return False
+            
+            return int(current) >= 5  # Lock after 5 failed attempts
+        except Exception:
+            # Fallback to memory cache
+            current = self._memory_cache.get(key, 0)
+            return current >= 5
     
     def unlock_account(self, identifier: str):
         """Unlock account"""
         key = f"failed_login:{identifier}"
-        self.redis_client.delete(key)
+        
+        if not self.redis_client:
+            # Use memory cache
+            self._memory_cache.pop(key, None)
+            return
+            
+        try:
+            self.redis_client.delete(key)
+        except Exception:
+            # Fallback to memory cache
+            self._memory_cache.pop(key, None)
     
     def clear_failed_logins(self, identifier: str):
         """Clear failed login attempts"""
         key = f"failed_login:{identifier}"
-        self.redis_client.delete(key)
+        
+        if not self.redis_client:
+            # Use memory cache
+            self._memory_cache.pop(key, None)
+            return
+            
+        try:
+            self.redis_client.delete(key)
+        except Exception:
+            # Fallback to memory cache
+            self._memory_cache.pop(key, None)
     
     # Lightweight JWT-like implementation for when jose is not available
     def _create_simple_token(self, data: Dict[str, Any]) -> str:

@@ -125,6 +125,13 @@ async def get_current_user_optional(credentials: HTTPAuthorizationCredentials = 
 # Rate limiting dependency
 async def rate_limit_check(request: Request):
     """Check rate limit for authentication endpoints"""
+    from utils.config import get_settings
+    settings = get_settings()
+    
+    # Skip rate limiting if disabled
+    if not settings.ENABLE_RATE_LIMITING:
+        return
+        
     client_ip = request.client.host
     rate_limit_result = security_utils.check_rate_limit(f"auth:{client_ip}", limit=10, window=300)  # 10 requests per 5 minutes
     

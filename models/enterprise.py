@@ -29,7 +29,7 @@ class Team(Base):
     is_active = Column(Boolean, default=True)
     
     # Relationships
-    creator = relationship("User", back_populates="created_teams")
+    creator = relationship("User")  # back_populates="created_teams"
     members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
     workspaces = relationship("Workspace", back_populates="team", cascade="all, delete-orphan")
     shared_analyses = relationship("SharedAnalysis", back_populates="team")
@@ -61,7 +61,7 @@ class TeamMember(Base):
     
     # Relationships
     team = relationship("Team", back_populates="members")
-    user = relationship("User", back_populates="team_memberships")
+    user = relationship("User", foreign_keys=[user_id])  # back_populates="team_memberships"
     added_by_user = relationship("User", foreign_keys=[added_by])
     
     def to_dict(self):
@@ -89,7 +89,7 @@ class Workspace(Base):
     
     # Relationships
     team = relationship("Team", back_populates="workspaces")
-    creator = relationship("User", back_populates="created_workspaces")
+    creator = relationship("User")  # back_populates="created_workspaces"
     shared_analyses = relationship("SharedAnalysis", back_populates="workspace")
     
     def to_dict(self):
@@ -121,7 +121,7 @@ class SharedAnalysis(Base):
     is_active = Column(Boolean, default=True)
     
     # Relationships
-    user = relationship("User", back_populates="shared_analyses")
+    user = relationship("User")  # back_populates="shared_analyses"
     team = relationship("Team", back_populates="shared_analyses")
     workspace = relationship("Workspace", back_populates="shared_analyses")
     
@@ -158,7 +158,7 @@ class APIKey(Base):
     is_active = Column(Boolean, default=True)
     
     # Relationships
-    user = relationship("User", back_populates="api_keys")
+    user = relationship("User")  # back_populates="api_keys"
     team = relationship("Team", back_populates="api_keys")
     usage_logs = relationship("UsageLog", back_populates="api_key")
     
@@ -195,7 +195,7 @@ class UsageLog(Base):
     
     # Relationships
     api_key = relationship("APIKey", back_populates="usage_logs")
-    user = relationship("User", back_populates="usage_logs")
+    user = relationship("User")  # back_populates="usage_logs"
     team = relationship("Team")
     
     def to_dict(self):

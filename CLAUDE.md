@@ -2,13 +2,29 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Important Instructions for Claude Code
+
+**Development Approach:**
+1. Use the TodoWrite tool to plan and track all tasks
+2. Keep changes simple and focused - avoid massive refactors
+3. Always test changes after implementation
+4. Follow existing code patterns and architecture
+5. Check for lint/type errors before completing tasks
+
+**Key Commands to Remember:**
+- Run tests: `pytest` or `pytest tests/test_specific.py`
+- Run linting: Check if project has linting configured
+- Run type checking: Check if project has type checking configured
+- Database migrations: `alembic upgrade head` (if using Alembic)
+- Start dev server: `uvicorn api.main:app --reload --port 8000`
+
 ## Project Overview
 
 BioIntel.AI is a free AI-powered bioinformatics platform for gene expression analysis and literature summarization. It's built with FastAPI backend and optional Streamlit frontend, designed to provide researchers with powerful tools for analyzing gene expression data and processing scientific literature at zero cost.
 
 ## Common Development Commands
 
-### Backend Development
+### Development Environment Setup
 ```bash
 # Install dependencies (development - includes all ML libraries)
 pip install -r requirements-full.txt
@@ -16,12 +32,37 @@ pip install -r requirements-full.txt
 # Install dependencies (production - lightweight for Vercel)
 pip install -r requirements.txt
 
+# Copy environment configuration
+cp .env.example .env
+# Edit .env with your database credentials and other settings
+```
+
+### Backend Development
+```bash
 # Start the main FastAPI application
 uvicorn api.main:app --reload --port 8000
 
-# Run database migrations
+# Alternative: Start with main.py
+uvicorn main:app --reload --port 8000
+
+# For Vercel deployment testing
+python api/index.py
+```
+
+### Database Management
+```bash
+# Database migrations (if Alembic is configured)
 alembic upgrade head
 
+# Create new migration
+alembic revision --autogenerate -m "description"
+
+# Initialize database tables (manual)
+python -c "from models.database import Base, engine; Base.metadata.create_all(bind=engine)"
+```
+
+### Testing
+```bash
 # Run all tests
 pytest
 
@@ -33,6 +74,19 @@ pytest tests/test_integration_workflows.py # Integration tests
 
 # Run tests with coverage
 pytest --cov=. --cov-report=html
+
+# Run single test method
+pytest tests/test_auth_api.py::test_register_user -v
+```
+
+### Linting and Type Checking
+```bash
+# Note: Check if project has these configured
+# Common Python linting tools:
+# flake8 .
+# black .
+# mypy .
+# ruff check .
 ```
 
 ### Frontend Development
@@ -100,10 +154,11 @@ vercel env add SECRET_KEY
   - `logging.py` - Structured logging configuration
 
 ### Database Design
-- Uses SQLAlchemy with PostgreSQL for production, SQLite for development
-- Alembic for database migrations
-- Models follow domain-driven design principles
+- **SQLAlchemy ORM** with PostgreSQL for production, SQLite for development
+- Database migrations handled via Alembic (check if configured)
+- Models organized by domain: `user.py`, `bioinformatics.py`, `literature.py`, `enterprise.py`
 - Supports both local and cloud database deployments
+- Connection management in `models/database.py`
 
 ### AI Integration
 - **Free AI Models**: Uses Hugging Face Transformers for zero-cost AI processing
@@ -134,9 +189,10 @@ Key environment variables are defined in `.env` file:
 - **Testing**: In-memory SQLite database
 
 ### Deployment Environments
-- **Vercel**: Serverless deployment with automatic scaling
-- **Docker**: Containerized deployment with docker-compose
+- **Vercel**: Serverless deployment via `api/index.py` (Vercel handler)
+- **Docker**: Containerized deployment with `docker-compose.yml`
 - **Local**: Direct Python execution with virtual environment
+- **Production**: Uses `api/main.py` as main application entry point
 
 ## Testing Strategy
 
@@ -145,6 +201,8 @@ Key environment variables are defined in `.env` file:
 - **Integration Tests**: End-to-end API testing
 - **Test Fixtures**: Comprehensive test data setup in `tests/conftest.py`
 - **Mocking**: External API and AI service mocking for reliable tests
+- **Test Database**: Uses separate SQLite database for testing
+- **Test Client**: FastAPI TestClient for API endpoint testing
 
 ### Test Database
 - Uses separate SQLite database for testing
@@ -185,39 +243,70 @@ Key environment variables are defined in `.env` file:
 - Type hints for better code documentation
 
 ### Database Changes
-- Create new Alembic migration for schema changes: `alembic revision --autogenerate -m "description"`
-- Apply migrations: `alembic upgrade head`
-- Test migrations on sample data
+- **If Alembic is configured:** Create migration with `alembic revision --autogenerate -m "description"`
+- **If Alembic is configured:** Apply migrations with `alembic upgrade head`
+- **Manual approach:** Modify models and recreate tables (development only)
+- Always test migrations on sample data
+- Database initialization via `models/database.py`
 
 ### Adding New Features
-- Create service class in `services/` for business logic
-- Add API endpoints in appropriate `api/` module
-- Create database models in `models/` if needed
-- Add comprehensive tests in `tests/`
-- Update frontend components in `frontend/` if needed
+1. **Service Layer**: Create service class in `services/` for business logic
+2. **API Endpoints**: Add endpoints in appropriate `api/` module
+3. **Database Models**: Create models in `models/` if needed
+4. **Testing**: Add comprehensive tests in `tests/`
+5. **Frontend**: Update Streamlit components in `frontend/` if needed
+6. **Dependencies**: Update requirements files if new packages needed
 
 ### External API Integration
-- All external APIs are free and don't require authentication
-- Use httpx for async HTTP calls
-- Implement proper error handling and retry logic
-- Cache responses when appropriate
+- **Free APIs**: All external APIs are free and don't require authentication
+- **HTTP Client**: Use httpx for async HTTP calls
+- **Error Handling**: Implement proper error handling and retry logic
+- **Caching**: Cache responses when appropriate
+- **Available APIs**: PubMed, UniProt, Ensembl, STRING, KEGG (configured in environment)
 
 ## Deployment Notes
 
 ### Vercel Configuration
-- Configured for serverless Python deployment
-- Uses `vercel.json` for routing configuration
-- Optimized requirements.txt for 250MB limit
-- Environment variables managed through Vercel dashboard
+- **Entry Point**: `api/index.py` (Vercel-compatible handler)
+- **Routing**: `vercel.json` routes all requests to `api/index.py`
+- **Requirements**: Ultra-minimal `requirements.txt` for 250MB limit
+- **Environment**: Variables set in `vercel.json` and Vercel dashboard
+- **Database**: Uses SQLite for serverless deployment
+- **Timeout**: 30 seconds max duration for serverless functions
 
 ### Docker Configuration
-- Multi-stage builds for production optimization
-- Separate containers for backend and frontend
-- PostgreSQL and Redis as service dependencies
-- Health checks for service monitoring
+- **Multi-service Setup**: `docker-compose.yml` with API, database, Redis, frontend, and Nginx
+- **Services**: API (FastAPI), PostgreSQL, Redis, Streamlit frontend, Nginx reverse proxy
+- **Health Checks**: Configured for all services
+- **Volumes**: Persistent data for database and Redis
+- **Development**: Use `docker-compose up -d` for full stack
 
 ### Performance Considerations
 - Database connection pooling for production
-- Redis caching for frequently accessed data
+- Redis caching for frequently accessed data (configured in docker-compose)
 - Async request handling for better concurrency
 - Optimized AI model loading and caching
+- Free AI models via Hugging Face (no API keys required)
+- Vercel deployment optimized with minimal requirements.txt
+
+## Key Architecture Points
+
+### Dual Entry Points
+- **Development/Production**: `api/main.py` - Full FastAPI application with middleware
+- **Vercel Deployment**: `api/index.py` - Vercel-compatible handler wrapping FastAPI
+
+### Service Layer Pattern
+- All business logic in `services/` directory
+- Async service classes with initialization methods
+- Service injection into API endpoints via dependency injection
+
+### Configuration Management
+- Environment-based configuration via `utils/config.py`
+- Pydantic Settings for type-safe configuration
+- Separate requirements files for different deployment scenarios
+
+### Database Strategy
+- **Development**: SQLite for simplicity
+- **Production**: PostgreSQL with connection pooling
+- **Vercel**: SQLite for serverless compatibility
+- Models use SQLAlchemy with async support where needed

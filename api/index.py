@@ -1,67 +1,20 @@
-"""
-Vercel-compatible entry point for BioIntel.AI
-Ultra-minimal version designed specifically for Vercel Python runtime
-"""
-import json
-import os
-import time
+from http.server import BaseHTTPRequestHandler
 
-# Vercel Python function handler
-def handler(request, context=None):
-    """
-    Main Vercel function handler
-    This function will be called by Vercel's Python runtime
-    """
-    try:
-        # Create a successful response
-        response_data = {
-            'message': 'BioIntel.AI is running on Vercel!',
-            'status': 'healthy',
-            'version': '1.0.0',
-            'timestamp': time.time(),
-            'environment': os.getenv('ENVIRONMENT', 'production'),
-            'success': True,
-            'vercel_runtime': 'python',
-            'function_invocation': 'successful'
-        }
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
         
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-            },
-            'body': json.dumps(response_data)
-        }
-        
-    except Exception as e:
-        # If anything fails, return detailed error information
-        error_response = {
-            'error': 'Function execution failed',
-            'details': str(e),
-            'type': type(e).__name__,
-            'timestamp': time.time(),
-            'environment': os.getenv('ENVIRONMENT', 'unknown')
-        }
-        
-        return {
-            'statusCode': 500,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            'body': json.dumps(error_response)
-        }
+        response = '{"message": "BioIntel.AI is working on Vercel!", "status": "healthy", "success": true}'
+        self.wfile.write(response.encode('utf-8'))
+        return
 
-# Alternative entry points for different Vercel configurations
-app = handler  # For direct function calls
-main = handler  # Alternative entry point
-
-# Test the function locally
-if __name__ == "__main__":
-    print("Testing Vercel function handler...")
-    result = handler({})
-    print("Result:")
-    print(json.dumps(result, indent=2))
+    def do_POST(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        
+        response = '{"message": "POST request received", "status": "healthy"}'
+        self.wfile.write(response.encode('utf-8'))
+        return

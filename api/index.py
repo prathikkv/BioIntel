@@ -1,46 +1,67 @@
 """
-Simple Vercel-compatible entry point for BioIntel.AI
-This is a minimal version for initial deployment testing
+Vercel-compatible entry point for BioIntel.AI
+Ultra-minimal version designed specifically for Vercel Python runtime
 """
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+import json
 import os
 import time
 
-# Create minimal FastAPI app
-app = FastAPI(
-    title="BioIntel.AI",
-    description="Free AI-powered bioinformatics platform",
-    version="1.0.0"
-)
+# Vercel Python function handler
+def handler(request, context=None):
+    """
+    Main Vercel function handler
+    This function will be called by Vercel's Python runtime
+    """
+    try:
+        # Create a successful response
+        response_data = {
+            'message': 'BioIntel.AI is running on Vercel!',
+            'status': 'healthy',
+            'version': '1.0.0',
+            'timestamp': time.time(),
+            'environment': os.getenv('ENVIRONMENT', 'production'),
+            'success': True,
+            'vercel_runtime': 'python',
+            'function_invocation': 'successful'
+        }
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            },
+            'body': json.dumps(response_data)
+        }
+        
+    except Exception as e:
+        # If anything fails, return detailed error information
+        error_response = {
+            'error': 'Function execution failed',
+            'details': str(e),
+            'type': type(e).__name__,
+            'timestamp': time.time(),
+            'environment': os.getenv('ENVIRONMENT', 'unknown')
+        }
+        
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps(error_response)
+        }
 
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "message": "Welcome to BioIntel.AI",
-        "status": "running",
-        "version": "1.0.0",
-        "timestamp": time.time()
-    }
+# Alternative entry points for different Vercel configurations
+app = handler  # For direct function calls
+main = handler  # Alternative entry point
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "timestamp": time.time(),
-        "environment": os.getenv("ENVIRONMENT", "development"),
-        "database": os.getenv("DATABASE_URL", "sqlite:///./biointel.db"),
-        "message": "BioIntel.AI is running successfully on Vercel!"
-    }
-
-@app.get("/api/health")
-async def api_health():
-    """API health check"""
-    return await health_check()
-
-# For Vercel compatibility
-def handler(request):
-    """Vercel handler function"""
-    return app
+# Test the function locally
+if __name__ == "__main__":
+    print("Testing Vercel function handler...")
+    result = handler({})
+    print("Result:")
+    print(json.dumps(result, indent=2))

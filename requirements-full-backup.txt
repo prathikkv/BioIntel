@@ -1,0 +1,42 @@
+# Ultra-Minimal Requirements for Vercel Deployment (<20MB)
+# For full development environment, use: pip install -r requirements-full.txt
+
+# Core FastAPI (Essential)
+fastapi>=0.104.1
+uvicorn>=0.24.0
+python-multipart>=0.0.6
+
+# Database (SQLite built-in, no external dependencies)
+sqlalchemy>=2.0.23
+
+# Basic Authentication (Lightweight)
+passlib[bcrypt]>=1.7.4
+pydantic[email]>=2.5.0
+
+# HTTP Client (Lightweight)
+httpx>=0.25.2
+
+# Security (Minimal)
+itsdangerous>=2.1.2
+
+# Configuration
+python-dotenv>=1.0.0
+pydantic-settings>=2.1.0
+
+# PDF Processing (Essential)
+PyPDF2>=3.0.0
+
+# Report Generation
+jinja2>=3.1.2
+
+# Note: Heavy dependencies removed for Vercel deployment:
+# - psycopg2-binary (PostgreSQL driver) - using SQLite instead
+# - aiohttp (large HTTP library) - using httpx only
+# - cryptography (large crypto library) - using minimal alternatives
+# - python-jose (JWT with crypto) - using itsdangerous instead
+# - bcrypt (separate package) - using passlib's bcrypt
+# - slowapi (rate limiting) - removed for size constraints
+# - structlog (logging) - using built-in logging
+# - requests (redundant with httpx) - removed
+# - email-validator (large) - using pydantic's email validation
+# - python-multipart (file uploads) - may need to add back if needed

@@ -9,22 +9,45 @@ import logging
 import sys
 import os
 
-# Add the project root to Python path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+# Add the project root to Python path for local development
+if os.path.exists(os.path.join(os.path.dirname(__file__), '..', 'services')):
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from services.auth_service import AuthService
-from services.bioinformatics_service import BioinformaticsService
-from services.literature_service import LiteratureService
-from services.free_ai_service import FreeAIService
-from services.bio_apis_service import BioinformaticsAPIsService
-from services.public_datasets_service import PublicDatasetsService
-from services.analysis_templates_service import AnalysisTemplatesService
-from services.research_workflows_service import ResearchWorkflowsService
-from services.enterprise_service import EnterpriseService
-from models.database import engine, Base
-from utils.security import SecurityUtils
-from utils.logging import setup_logging
-from utils.config import get_settings
+# Try importing from parent directory structure (for Vercel)
+try:
+    from services.auth_service import AuthService
+    from services.bioinformatics_service import BioinformaticsService
+    from services.literature_service import LiteratureService
+    from services.free_ai_service import FreeAIService
+    from services.bio_apis_service import BioinformaticsAPIsService
+    from services.public_datasets_service import PublicDatasetsService
+    from services.analysis_templates_service import AnalysisTemplatesService
+    from services.research_workflows_service import ResearchWorkflowsService
+    from services.enterprise_service import EnterpriseService
+    from models.database import engine, Base
+    from utils.security import SecurityUtils
+    from utils.logging import setup_logging
+    from utils.config import get_settings
+except ImportError:
+    # Try importing from same directory (alternative structure)
+    import sys
+    import os
+    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, parent_dir)
+    
+    from services.auth_service import AuthService
+    from services.bioinformatics_service import BioinformaticsService
+    from services.literature_service import LiteratureService
+    from services.free_ai_service import FreeAIService
+    from services.bio_apis_service import BioinformaticsAPIsService
+    from services.public_datasets_service import PublicDatasetsService
+    from services.analysis_templates_service import AnalysisTemplatesService
+    from services.research_workflows_service import ResearchWorkflowsService
+    from services.enterprise_service import EnterpriseService
+    from models.database import engine, Base
+    from utils.security import SecurityUtils
+    from utils.logging import setup_logging
+    from utils.config import get_settings
 
 # Initialize settings and logging
 settings = get_settings()

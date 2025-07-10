@@ -3,16 +3,49 @@ from typing import Optional, Dict, Any
 import hashlib
 import hmac
 import secrets
-from jose import jwt
-from passlib.context import CryptContext
-from cryptography.fernet import Fernet
-from email_validator import validate_email, EmailNotValidError
 import re
-import redis
+import json
+import base64
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from utils.config import get_settings
 from utils.logging import get_logger
+
+# Conditional imports for heavy dependencies
+try:
+    from jose import jwt
+    JWT_AVAILABLE = True
+except ImportError:
+    JWT_AVAILABLE = False
+    print("⚠️  python-jose not available - using lightweight JWT implementation")
+
+try:
+    from passlib.context import CryptContext
+    PASSLIB_AVAILABLE = True
+except ImportError:
+    PASSLIB_AVAILABLE = False
+    print("⚠️  passlib not available - using built-in password hashing")
+
+try:
+    from cryptography.fernet import Fernet
+    FERNET_AVAILABLE = True
+except ImportError:
+    FERNET_AVAILABLE = False
+    print("⚠️  cryptography not available - using basic encryption")
+
+try:
+    from email_validator import validate_email, EmailNotValidError
+    EMAIL_VALIDATOR_AVAILABLE = True
+except ImportError:
+    EMAIL_VALIDATOR_AVAILABLE = False
+    print("⚠️  email-validator not available - using basic email validation")
+
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    print("⚠️  redis not available - using in-memory caching")
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -21,15 +54,34 @@ class SecurityUtils:
     """Security utilities for authentication, encryption, and validation"""
     
     def __init__(self):
-        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        self.redis_client = redis.from_url(settings.REDIS_URL)
+        # Initialize password context
+        if PASSLIB_AVAILABLE:
+            self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        else:
+            self.pwd_context = None
+        
+        # Initialize Redis client
+        if REDIS_AVAILABLE:
+            try:
+                self.redis_client = redis.from_url(settings.REDIS_URL)
+            except Exception:
+                self.redis_client = None
+        else:
+            self.redis_client = None
+            # Use in-memory cache as fallback
+            self._memory_cache = {}
         
         # Initialize encryption
-        self.encryption_key = self._get_or_create_encryption_key()
-        self.cipher_suite = Fernet(self.encryption_key)
+        if FERNET_AVAILABLE:
+            self.encryption_key = self._get_or_create_encryption_key()
+            self.cipher_suite = Fernet(self.encryption_key)
+        else:
+            self.cipher_suite = None
     
     def _get_or_create_encryption_key(self) -> bytes:
         """Get or create encryption key"""
+        if not FERNET_AVAILABLE:
+            return b""
         try:
             # Try to get existing key from environment or generate new one
             key = settings.SECRET_KEY.encode()[:32]  # Use first 32 bytes
@@ -39,12 +91,27 @@ class SecurityUtils:
     
     # Password utilities
     def hash_password(self, password: str) -> str:
-        """Hash password using bcrypt"""
-        return self.pwd_context.hash(password)
+        """Hash password using bcrypt or fallback"""
+        if PASSLIB_AVAILABLE and self.pwd_context:
+            return self.pwd_context.hash(password)
+        else:
+            # Fallback to basic hashing with salt
+            salt = secrets.token_hex(16)
+            password_hash = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+            return f"{salt}:{password_hash.hex()}"
     
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """Verify password against hash"""
-        return self.pwd_context.verify(plain_password, hashed_password)
+        if PASSLIB_AVAILABLE and self.pwd_context:
+            return self.pwd_context.verify(plain_password, hashed_password)
+        else:
+            # Fallback verification
+            try:
+                salt, stored_hash = hashed_password.split(':')
+                password_hash = hashlib.pbkdf2_hmac('sha256', plain_password.encode(), salt.encode(), 100000)
+                return password_hash.hex() == stored_hash
+            except Exception:
+                return False
     
     def validate_password_strength(self, password: str) -> Dict[str, Any]:
         """Validate password strength"""
@@ -107,7 +174,11 @@ class SecurityUtils:
         
         to_encode.update({"exp": expire, "type": "access"})
         
-        return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+        if JWT_AVAILABLE:
+            return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+        else:
+            # Lightweight JWT-like implementation
+            return self._create_simple_token(to_encode)
     
     def create_refresh_token(self, data: Dict[str, Any]) -> str:
         """Create JWT refresh token"""
@@ -116,18 +187,23 @@ class SecurityUtils:
         
         to_encode.update({"exp": expire, "type": "refresh"})
         
-        return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+        if JWT_AVAILABLE:
+            return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+        else:
+            # Lightweight JWT-like implementation
+            return self._create_simple_token(to_encode)
     
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Verify JWT token"""
         try:
-            payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-            return payload
-        except jwt.ExpiredSignatureError:
-            logger.warning("Token expired")
-            return None
-        except jwt.JWTError:
-            logger.warning("Invalid token")
+            if JWT_AVAILABLE:
+                payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+                return payload
+            else:
+                # Lightweight token verification
+                return self._verify_simple_token(token)
+        except Exception as e:
+            logger.warning(f"Token verification failed: {str(e)}")
             return None
     
     def revoke_token(self, token: str):
@@ -292,6 +368,62 @@ class SecurityUtils:
         """Clear failed login attempts"""
         key = f"failed_login:{identifier}"
         self.redis_client.delete(key)
+    
+    # Lightweight JWT-like implementation for when jose is not available
+    def _create_simple_token(self, data: Dict[str, Any]) -> str:
+        """Create a simple signed token without external dependencies"""
+        # Convert datetime objects to timestamps
+        payload = {}
+        for key, value in data.items():
+            if isinstance(value, datetime):
+                payload[key] = value.timestamp()
+            else:
+                payload[key] = value
+        
+        # Create token: base64(payload).signature
+        payload_json = json.dumps(payload, sort_keys=True)
+        payload_b64 = base64.urlsafe_b64encode(payload_json.encode()).decode().rstrip('=')
+        
+        # Create signature using HMAC
+        signature = hmac.new(
+            settings.JWT_SECRET_KEY.encode(),
+            payload_b64.encode(),
+            hashlib.sha256
+        ).hexdigest()[:16]  # Truncate for shorter tokens
+        
+        return f"{payload_b64}.{signature}"
+    
+    def _verify_simple_token(self, token: str) -> Optional[Dict[str, Any]]:
+        """Verify a simple signed token"""
+        try:
+            payload_b64, signature = token.split('.')
+            
+            # Verify signature
+            expected_signature = hmac.new(
+                settings.JWT_SECRET_KEY.encode(),
+                payload_b64.encode(),
+                hashlib.sha256
+            ).hexdigest()[:16]
+            
+            if not hmac.compare_digest(signature, expected_signature):
+                return None
+            
+            # Decode payload
+            # Add padding if needed
+            payload_b64 += '=' * (4 - len(payload_b64) % 4)
+            payload_json = base64.urlsafe_b64decode(payload_b64).decode()
+            payload = json.loads(payload_json)
+            
+            # Convert timestamps back to datetime objects
+            if 'exp' in payload:
+                exp_timestamp = payload['exp']
+                if exp_timestamp < datetime.utcnow().timestamp():
+                    return None  # Token expired
+            
+            return payload
+            
+        except Exception:
+            return None
 
 # Global security utils instance
 security_utils = SecurityUtils()

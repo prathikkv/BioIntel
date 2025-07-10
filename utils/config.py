@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str = Field(
-        default="postgresql://user:password@localhost/biointel",
+        default="sqlite:///./biointel.db",
         env="DATABASE_URL"
     )
     

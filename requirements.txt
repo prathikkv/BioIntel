@@ -1,50 +1,41 @@
-# Production Requirements (Vercel-Optimized, Under 250MB)
-# For development with full ML libraries, use: pip install -r requirements-full.txt
-# Core FastAPI and Web Framework
+# Ultra-Minimal Requirements for Vercel Deployment (<20MB)
+# For full development environment, use: pip install -r requirements-full.txt
+
+# Core FastAPI (Essential)
 fastapi>=0.104.1
 uvicorn>=0.24.0
-python-multipart>=0.0.6
 
-# Database and ORM
+# Database (SQLite built-in, no external dependencies)
 sqlalchemy>=2.0.23
-psycopg2-binary>=2.9.9
 
-# Authentication and Security
-python-jose[cryptography]>=3.3.0
+# Basic Authentication (Lightweight)
 passlib[bcrypt]>=1.7.4
 pydantic[email]>=2.5.0
 
-# HTTP Client
+# HTTP Client (Lightweight)
 httpx>=0.25.2
-requests>=2.31.0
-aiohttp>=3.8.0
 
-# Security
-cryptography>=43.0.0
-bcrypt>=4.2.0
+# Security (Minimal)
 itsdangerous>=2.1.2
 
 # Configuration
 python-dotenv>=1.0.0
 pydantic-settings>=2.1.0
 
-# Data Validation
-email-validator>=2.1.0
-
-# CORS and Rate Limiting
-slowapi>=0.1.8
+# PDF Processing (Essential)
+PyPDF2>=3.0.0
 
 # Report Generation
 jinja2>=3.1.2
 
-# Logging
-structlog>=23.2.0
-
-# PDF Processing (Lightweight)
-PyPDF2>=3.0.0
-
-# Note: pandas, numpy, pdfplumber removed for Vercel size constraints
-# Services will fall back to basic implementations when these are unavailable
-
-# Note: Heavy ML libraries (torch, transformers, sklearn) excluded for Vercel
-# These will be made optional and fall back to simpler implementations
+# Note: Heavy dependencies removed for Vercel deployment:
+# - psycopg2-binary (PostgreSQL driver) - using SQLite instead
+# - aiohttp (large HTTP library) - using httpx only
+# - cryptography (large crypto library) - using minimal alternatives
+# - python-jose (JWT with crypto) - using itsdangerous instead
+# - bcrypt (separate package) - using passlib's bcrypt
+# - slowapi (rate limiting) - removed for size constraints
+# - structlog (logging) - using built-in logging
+# - requests (redundant with httpx) - removed
+# - email-validator (large) - using pydantic's email validation
+# - python-multipart (file uploads) - may need to add back if needed

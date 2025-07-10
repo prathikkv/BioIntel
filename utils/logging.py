@@ -3,21 +3,29 @@ import sys
 from datetime import datetime
 from typing import Any, Dict
 import json
-import structlog
 from utils.config import get_settings
+
+# Conditional import for structlog
+try:
+    import structlog
+    STRUCTLOG_AVAILABLE = True
+except ImportError:
+    STRUCTLOG_AVAILABLE = False
+    print("⚠️  structlog not available - using basic logging")
 
 settings = get_settings()
 
 def setup_logging():
     """Configure structured logging for the application"""
     
-    # Configure structlog
-    structlog.configure(
-        processors=[
-            structlog.stdlib.filter_by_level,
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
+    if STRUCTLOG_AVAILABLE:
+        # Configure structlog
+        structlog.configure(
+            processors=[
+                structlog.stdlib.filter_by_level,
+                structlog.stdlib.add_logger_name,
+                structlog.stdlib.add_log_level,
+                structlog.stdlib.PositionalArgumentsFormatter(),
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
@@ -29,10 +37,13 @@ def setup_logging():
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
+    else:
+        # Fallback to basic logging
+        print("Using basic logging configuration")
     
     # Configure standard logging
     logging.basicConfig(
-        format=settings.LOG_FORMAT,
+        format=getattr(settings, 'LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s'),
         level=getattr(logging, settings.LOG_LEVEL.upper()),
         stream=sys.stdout
     )
@@ -46,7 +57,10 @@ class APILogger:
     """Custom logger for API operations"""
     
     def __init__(self, name: str):
-        self.logger = structlog.get_logger(name)
+        if STRUCTLOG_AVAILABLE:
+            self.logger = structlog.get_logger(name)
+        else:
+            self.logger = logging.getLogger(name)
     
     def info(self, message: str, **kwargs):
         """Log info message with context"""

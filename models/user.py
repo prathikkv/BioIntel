@@ -41,11 +41,11 @@ class User(Base):
     password_reset_expires = Column(DateTime(timezone=True), nullable=True)
     email_verification_token = Column(String(255), nullable=True)
     
-    # Relationships
-    datasets = relationship("Dataset", back_populates="user")
-    analysis_jobs = relationship("AnalysisJob", back_populates="user")
-    literature_summaries = relationship("LiteratureSummary", back_populates="user")
-    reports = relationship("Report", back_populates="user")
+    # Relationships - temporarily disabled for initial authentication setup
+    # datasets = relationship("Dataset", back_populates="user")
+    # analysis_jobs = relationship("AnalysisJob", back_populates="user")
+    # literature_summaries = relationship("LiteratureSummary", back_populates="user")
+    # reports = relationship("Report", back_populates="user")
     audit_logs = relationship("AuditLog", back_populates="user")
     
     # Enterprise relationships - temporarily disabled to fix foreign key issue

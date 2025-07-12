@@ -2,21 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Important Instructions for Claude Code
+## Critical Development Patterns
 
-**Development Approach:**
-1. Use the TodoWrite tool to plan and track all tasks
-2. Keep changes simple and focused - avoid massive refactors
-3. Always test changes after implementation
-4. Follow existing code patterns and architecture
-5. Check for lint/type errors before completing tasks
+**Dependency Management:**
+- The project uses dual requirements files: `requirements.txt` (minimal for Vercel) and `requirements-full-backup.txt` (full development)
+- Security utilities in `utils/security.py` use conditional imports with fallbacks for missing dependencies
+- Always test imports work in both environments before deploying
 
-**Key Commands to Remember:**
-- Run tests: `pytest` or `pytest tests/test_specific.py`
-- Run linting: Check if project has linting configured
-- Run type checking: Check if project has type checking configured
-- Database migrations: `alembic upgrade head` (if using Alembic)
-- Start dev server: `uvicorn api.main:app --reload --port 8000`
+**Vercel Deployment Architecture:**
+- `api/index.py` is the Vercel entry point with custom ASGI-to-HTTP handler
+- Uses BaseHTTPRequestHandler wrapper for serverless compatibility
+- Heavy ML dependencies (transformers, torch) are conditionally loaded and skipped in production
+- Environment variable `ENVIRONMENT=production` controls feature loading
+
+**Database Strategy:**
+- SQLite for development/Vercel, PostgreSQL for full production
+- Alembic migrations available but database models can be initialized manually
+- `models/database.py` handles connection management with environment-based switching
 
 ## Project Overview
 
@@ -24,59 +26,64 @@ BioIntel.AI is a free AI-powered bioinformatics platform for gene expression ana
 
 ## Common Development Commands
 
-### Development Environment Setup
+### Environment Setup
 ```bash
-# Install dependencies (development - includes all ML libraries)
-pip install -r requirements-full.txt
+# Full development environment (includes ML libraries)
+pip install -r requirements-full-backup.txt
 
-# Install dependencies (production - lightweight for Vercel)
+# Minimal environment (for testing Vercel compatibility)
 pip install -r requirements.txt
 
-# Copy environment configuration
-cp .env.example .env
-# Edit .env with your database credentials and other settings
+# Environment configuration already exists (.env file is committed)
+# Key settings: ENVIRONMENT=development, USE_FREE_AI=true, ENABLE_RATE_LIMITING=False
 ```
 
-### Backend Development
+### Development Server
 ```bash
-# Start the main FastAPI application
+# Main development server (full features)
 uvicorn api.main:app --reload --port 8000
 
-# Alternative: Start with main.py
-uvicorn main:app --reload --port 8000
-
-# For Vercel deployment testing
+# Test Vercel compatibility locally
 python api/index.py
+
+# Alternative: Direct FastAPI app testing
+python -c "from api.index import app; import uvicorn; uvicorn.run(app, host='0.0.0.0', port=8000)"
 ```
 
 ### Database Management
 ```bash
-# Database migrations (if Alembic is configured)
+# Alembic is configured - apply migrations
 alembic upgrade head
 
-# Create new migration
+# Create new migration after model changes
 alembic revision --autogenerate -m "description"
 
-# Initialize database tables (manual)
+# Manual database initialization (if migrations fail)
 python -c "from models.database import Base, engine; Base.metadata.create_all(bind=engine)"
+
+# Test database connectivity
+python -c "from models.database import get_db; db = next(get_db()); print('Database connected'); db.close()"
 ```
 
-### Testing
+### Testing and Debugging
 ```bash
-# Run all tests
-pytest
+# Test import compatibility between environments
+python -c "from api.index import app, FASTAPI_AVAILABLE; print(f'Vercel-safe imports: {FASTAPI_AVAILABLE}')"
 
-# Run specific test categories
-pytest tests/test_auth_api.py          # Authentication tests
-pytest tests/test_bioinformatics_api.py # Bioinformatics API tests
-pytest tests/test_literature_api.py    # Literature processing tests
-pytest tests/test_integration_workflows.py # Integration tests
+# Test authentication system components
+python -c "from utils.security import security_utils; token = security_utils.create_access_token({'sub': '1'}); print('Auth system working')"
 
-# Run tests with coverage
-pytest --cov=. --cov-report=html
+# Test database initialization
+python -c "from models.database import get_db; db = next(get_db()); print('DB connected'); db.close()"
 
-# Run single test method
-pytest tests/test_auth_api.py::test_register_user -v
+# Run pytest tests (if available)
+pytest tests/test_auth_api.py -v
+pytest tests/test_bioinformatics_api.py -v
+pytest tests/test_literature_api.py -v
+pytest tests/test_integration_workflows.py -v
+
+# Test Vercel handler locally
+python api/index.py
 ```
 
 ### Linting and Type Checking
@@ -112,12 +119,18 @@ docker-compose up -d --build
 
 ### Vercel Deployment
 ```bash
-# Deploy to Vercel
+# Deploy to Vercel (uses current requirements.txt - minimal)
 vercel --prod
 
-# Set environment variables
-vercel env add DATABASE_URL
-vercel env add SECRET_KEY
+# Check function logs for debugging
+vercel logs
+
+# Test deployment endpoints
+curl https://your-app.vercel.app/health
+curl -X POST https://your-app.vercel.app/api/auth/register -H "Content-Type: application/json" -d '{"email":"test@example.com","password":"test123","full_name":"Test User"}'
+
+# Environment variables are pre-configured in vercel.json
+# Critical: ENVIRONMENT=production, USE_FREE_AI=true, ENABLE_RATE_LIMITING=False
 ```
 
 ## Code Architecture
@@ -267,12 +280,13 @@ Key environment variables are defined in `.env` file:
 ## Deployment Notes
 
 ### Vercel Configuration
-- **Entry Point**: `api/index.py` (Vercel-compatible handler)
-- **Routing**: `vercel.json` routes all requests to `api/index.py`
-- **Requirements**: Ultra-minimal `requirements.txt` for 250MB limit
-- **Environment**: Variables set in `vercel.json` and Vercel dashboard
-- **Database**: Uses SQLite for serverless deployment
-- **Timeout**: 30 seconds max duration for serverless functions
+- **Entry Point**: `api/index.py` uses custom BaseHTTPRequestHandler with ASGI delegation to FastAPI
+- **Routing**: `vercel.json` routes all traffic to `api/index.py`, which handles both FastAPI and fallback routing
+- **Dependencies**: `requirements.txt` contains only essential packages (FastAPI, Pydantic, python-dotenv)
+- **Environment**: Production variables defined in `vercel.json`, including `ENVIRONMENT=production`
+- **Database**: SQLite file-based storage for serverless compatibility
+- **Function Timeout**: 30 seconds maximum, configured in `vercel.json`
+- **Error Handling**: Comprehensive fallback routing with helpful error messages for wrong HTTP methods
 
 ### Docker Configuration
 - **Multi-service Setup**: `docker-compose.yml` with API, database, Redis, frontend, and Nginx
@@ -291,22 +305,23 @@ Key environment variables are defined in `.env` file:
 
 ## Key Architecture Points
 
-### Dual Entry Points
-- **Development/Production**: `api/main.py` - Full FastAPI application with middleware
-- **Vercel Deployment**: `api/index.py` - Vercel-compatible handler wrapping FastAPI
+### Conditional Dependency Loading
+- **Security Utils**: `utils/security.py` implements graceful fallbacks for missing packages (jose→custom JWT, passlib→builtin hashing, redis→memory cache)
+- **ML Dependencies**: Heavy packages (transformers, torch) are conditionally imported and skipped in production
+- **Environment-Based Features**: `ENVIRONMENT=production` disables ML routers to prevent import failures
 
-### Service Layer Pattern
-- All business logic in `services/` directory
-- Async service classes with initialization methods
-- Service injection into API endpoints via dependency injection
+### Dual Entry Points with Different Capabilities
+- **Development**: `api/main.py` loads all routers including ML-heavy bioinformatics and literature services
+- **Vercel**: `api/index.py` loads only lightweight routers (auth, reports) and provides fallback endpoints for missing services
+- **Routing Strategy**: Custom ASGI-to-HTTP bridge in Vercel handler with comprehensive error handling
 
-### Configuration Management
-- Environment-based configuration via `utils/config.py`
-- Pydantic Settings for type-safe configuration
-- Separate requirements files for different deployment scenarios
+### Authentication Architecture
+- JWT-based with both lightweight (itsdangerous) and full (jose) implementations
+- Rate limiting optional (disabled in development via `ENABLE_RATE_LIMITING=False`)
+- Memory cache fallbacks when Redis unavailable
+- Account lockout tracking with configurable thresholds
 
-### Database Strategy
-- **Development**: SQLite for simplicity
-- **Production**: PostgreSQL with connection pooling
-- **Vercel**: SQLite for serverless compatibility
-- Models use SQLAlchemy with async support where needed
+### Database Model Relationships
+- Foreign key relationships temporarily disabled in some models to prevent SQLAlchemy conflicts
+- Enterprise models exist but have commented-out back_populates to avoid circular imports
+- Manual relationship management in service layer when needed

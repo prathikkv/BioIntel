@@ -73,7 +73,7 @@ if FASTAPI_AVAILABLE:
             "version": "1.0.0"
         }
     
-    # Safe authentication endpoints (without heavy imports)
+    # Authentication endpoints with database integration
     class UserRegister(BaseModel):
         email: str
         password: str
@@ -83,31 +83,126 @@ if FASTAPI_AVAILABLE:
         email: str
         password: str
     
+    # Safe imports for authentication
+    try:
+        from services.auth_service import AuthService
+        from models.database import get_db
+        from utils.security import security_utils
+        from fastapi import Depends, HTTPException, status
+        from fastapi.security import HTTPBearer
+        AUTH_AVAILABLE = True
+        auth_service = AuthService()
+        security = HTTPBearer()
+        print("✅ Authentication services imported successfully")
+    except ImportError as e:
+        AUTH_AVAILABLE = False
+        print(f"⚠️ Authentication services not available: {e}")
+    
     @app.post("/api/auth/register")
     async def register(user: UserRegister):
-        """Safe registration endpoint"""
-        return {
-            "message": "Registration endpoint available",
-            "email": user.email,
-            "status": "authentication_service_initializing"
-        }
+        """User registration with database"""
+        if not AUTH_AVAILABLE:
+            return {
+                "message": "Registration service temporarily unavailable",
+                "email": user.email,
+                "status": "service_initializing"
+            }
+        
+        try:
+            result = await auth_service.register_user({
+                "email": user.email,
+                "password": user.password,
+                "full_name": user.full_name
+            })
+            return result
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            print(f"Registration error: {e}")
+            return {
+                "error": "Registration failed",
+                "message": "Please try again later",
+                "email": user.email
+            }
     
     @app.post("/api/auth/login") 
     async def login(user: UserLogin):
-        """Safe login endpoint"""
-        return {
-            "message": "Login endpoint available",
-            "email": user.email,
-            "status": "authentication_service_initializing"
-        }
+        """User login with database"""
+        if not AUTH_AVAILABLE:
+            return {
+                "message": "Login service temporarily unavailable", 
+                "email": user.email,
+                "status": "service_initializing"
+            }
+        
+        try:
+            result = await auth_service.authenticate_user(user.email, user.password)
+            return result
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            print(f"Login error: {e}")
+            return {
+                "error": "Login failed",
+                "message": "Please check your credentials and try again",
+                "email": user.email
+            }
+    
+    async def get_current_user_safe(token: str = Depends(security)):
+        """Get current user with safe error handling"""
+        if not AUTH_AVAILABLE:
+            raise HTTPException(status_code=503, detail="Authentication service unavailable")
+        
+        try:
+            user = await auth_service.get_current_user(token.credentials)
+            return user
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            print(f"Token validation error: {e}")
+            raise HTTPException(status_code=401, detail="Invalid authentication")
     
     @app.get("/api/auth/me")
-    async def get_me():
-        """Safe user info endpoint"""
-        return {
-            "message": "User endpoint available",
-            "status": "authentication_service_initializing"
-        }
+    async def get_me(current_user: dict = Depends(get_current_user_safe)):
+        """Get current user information"""
+        if not AUTH_AVAILABLE:
+            return {
+                "message": "User service temporarily unavailable",
+                "status": "service_initializing"
+            }
+        
+        try:
+            if hasattr(current_user, 'to_dict'):
+                return {"user": current_user.to_dict()}
+            else:
+                return {"user": current_user}
+        except Exception as e:
+            print(f"User info error: {e}")
+            return {
+                "error": "Failed to retrieve user information",
+                "message": "Please try again later"
+            }
+    
+    @app.post("/api/auth/refresh")
+    async def refresh_token(refresh_token: str):
+        """Refresh access token"""
+        if not AUTH_AVAILABLE:
+            return {
+                "message": "Token refresh service temporarily unavailable",
+                "status": "service_initializing"
+            }
+        
+        try:
+            result = await auth_service.refresh_token(refresh_token)
+            return result
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            print(f"Token refresh error: {e}")
+            return {
+                "error": "Token refresh failed",
+                "message": "Please log in again"
+            }
     
     print("✅ FastAPI app created successfully")
     

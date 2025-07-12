@@ -1,12 +1,21 @@
-# Ultra-Minimal Requirements for Vercel (Crash-Proof)
-# Only the absolute essentials to prevent function crashes
+# Minimal Requirements for Vercel with Authentication
+# Essential packages for database-backed authentication
 
-# Core FastAPI - Minimal version
+# Core FastAPI
 fastapi==0.104.1
 uvicorn==0.24.0
 
-# Basic validation  
+# Database and Models
+sqlalchemy==2.0.23
 pydantic==2.5.0
+pydantic-settings==2.1.0
 
-# Configuration (minimal)
+# Authentication and Security
+passlib[bcrypt]==1.7.4
+itsdangerous==2.1.2
+
+# Configuration
 python-dotenv==1.0.0
+
+# HTTP client for external APIs
+httpx==0.25.2

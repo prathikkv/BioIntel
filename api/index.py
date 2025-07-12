@@ -83,8 +83,12 @@ if FASTAPI_AVAILABLE:
         email: str
         password: str
     
-    # Safe imports for authentication
+    # Safe imports for authentication - Force fallback for Vercel compatibility
     try:
+        # Force fallback mode for Vercel deployment
+        if os.getenv("ENVIRONMENT") == "production":
+            raise ImportError("Using fallback mode for Vercel deployment")
+            
         from services.auth_service import AuthService
         from models.database import get_db
         from utils.security import security_utils
@@ -96,92 +100,200 @@ if FASTAPI_AVAILABLE:
         print("✅ Authentication services imported successfully")
     except ImportError as e:
         AUTH_AVAILABLE = False
-        print(f"⚠️ Authentication services not available: {e}")
+        print(f"⚠️ Using fallback authentication system: {e}")
+        
+        # Create minimal in-memory user storage for fallback
+        USERS_DB = {}
+        SESSIONS_DB = {}
+        
+        def simple_hash_password(password: str) -> str:
+            import hashlib
+            return hashlib.sha256(password.encode()).hexdigest()
+        
+        def verify_simple_password(password: str, hashed: str) -> bool:
+            import hashlib
+            return hashlib.sha256(password.encode()).hexdigest() == hashed
+        
+        def create_simple_token(user_data: dict) -> str:
+            import secrets
+            import time
+            token = secrets.token_urlsafe(32)
+            SESSIONS_DB[token] = {**user_data, "expires": time.time() + 1800}  # 30 min
+            return token
+        
+        def verify_simple_token(token: str) -> dict:
+            import time
+            if token in SESSIONS_DB:
+                session = SESSIONS_DB[token]
+                if session["expires"] > time.time():
+                    return session
+                else:
+                    del SESSIONS_DB[token]
+            return None
     
     @app.post("/api/auth/register")
     async def register(user: UserRegister):
-        """User registration with database"""
-        if not AUTH_AVAILABLE:
-            return {
-                "message": "Registration service temporarily unavailable",
+        """User registration with database or in-memory fallback"""
+        if AUTH_AVAILABLE:
+            try:
+                result = await auth_service.register_user({
+                    "email": user.email,
+                    "password": user.password,
+                    "full_name": user.full_name
+                })
+                return result
+            except HTTPException as e:
+                raise e
+            except Exception as e:
+                print(f"Registration error: {e}")
+                return {
+                    "error": "Registration failed", 
+                    "message": "Please try again later",
+                    "email": user.email
+                }
+        else:
+            # Fallback to in-memory storage
+            if user.email in USERS_DB:
+                raise HTTPException(status_code=400, detail="User already exists")
+            
+            # Simple validation
+            if len(user.password) < 8:
+                raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+            
+            # Store user
+            import time
+            user_id = len(USERS_DB) + 1
+            hashed_password = simple_hash_password(user.password)
+            USERS_DB[user.email] = {
+                "id": user_id,
                 "email": user.email,
-                "status": "service_initializing"
+                "full_name": user.full_name,
+                "hashed_password": hashed_password,
+                "created_at": time.time()
             }
-        
-        try:
-            result = await auth_service.register_user({
-                "email": user.email,
-                "password": user.password,
-                "full_name": user.full_name
-            })
-            return result
-        except HTTPException as e:
-            raise e
-        except Exception as e:
-            print(f"Registration error: {e}")
+            
+            # Create token
+            token = create_simple_token({"user_id": user_id, "email": user.email})
+            
             return {
-                "error": "Registration failed",
-                "message": "Please try again later",
-                "email": user.email
+                "message": "User registered successfully (in-memory)",
+                "user": {
+                    "id": user_id,
+                    "email": user.email,
+                    "full_name": user.full_name
+                },
+                "access_token": token,
+                "token_type": "bearer",
+                "note": "Using lightweight in-memory storage for demo"
             }
     
     @app.post("/api/auth/login") 
     async def login(user: UserLogin):
-        """User login with database"""
-        if not AUTH_AVAILABLE:
+        """User login with database or in-memory fallback"""
+        if AUTH_AVAILABLE:
+            try:
+                result = await auth_service.authenticate_user(user.email, user.password)
+                return result
+            except HTTPException as e:
+                raise e
+            except Exception as e:
+                print(f"Login error: {e}")
+                return {
+                    "error": "Login failed",
+                    "message": "Please check your credentials and try again",
+                    "email": user.email
+                }
+        else:
+            # Fallback to in-memory storage
+            if user.email not in USERS_DB:
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+            
+            stored_user = USERS_DB[user.email]
+            if not verify_simple_password(user.password, stored_user["hashed_password"]):
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+            
+            # Create token
+            token = create_simple_token({"user_id": stored_user["id"], "email": user.email})
+            
             return {
-                "message": "Login service temporarily unavailable", 
-                "email": user.email,
-                "status": "service_initializing"
-            }
-        
-        try:
-            result = await auth_service.authenticate_user(user.email, user.password)
-            return result
-        except HTTPException as e:
-            raise e
-        except Exception as e:
-            print(f"Login error: {e}")
-            return {
-                "error": "Login failed",
-                "message": "Please check your credentials and try again",
-                "email": user.email
+                "message": "Login successful (in-memory)",
+                "user": {
+                    "id": stored_user["id"],
+                    "email": stored_user["email"],
+                    "full_name": stored_user["full_name"]
+                },
+                "access_token": token,
+                "token_type": "bearer",
+                "note": "Using lightweight in-memory storage for demo"
             }
     
-    async def get_current_user_safe(token: str = Depends(security)):
-        """Get current user with safe error handling"""
-        if not AUTH_AVAILABLE:
-            raise HTTPException(status_code=503, detail="Authentication service unavailable")
-        
-        try:
-            user = await auth_service.get_current_user(token.credentials)
-            return user
-        except HTTPException as e:
-            raise e
-        except Exception as e:
-            print(f"Token validation error: {e}")
-            raise HTTPException(status_code=401, detail="Invalid authentication")
+    if AUTH_AVAILABLE:
+        async def get_current_user_safe(token: str = Depends(security)):
+            """Get current user with safe error handling"""
+            try:
+                user = await auth_service.get_current_user(token.credentials)
+                return user
+            except HTTPException as e:
+                raise e
+            except Exception as e:
+                print(f"Token validation error: {e}")
+                raise HTTPException(status_code=401, detail="Invalid authentication")
+    else:
+        async def get_current_user_safe(authorization: str = None):
+            """Fallback user authentication"""
+            from fastapi import Header
+            if not authorization:
+                raise HTTPException(status_code=401, detail="Authorization header required")
+            
+            if not authorization.startswith("Bearer "):
+                raise HTTPException(status_code=401, detail="Invalid authorization format")
+                
+            token = authorization.split(" ", 1)[1]
+            session = verify_simple_token(token)
+            if not session:
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
+                
+            return session
     
-    @app.get("/api/auth/me")
-    async def get_me(current_user: dict = Depends(get_current_user_safe)):
+    @app.get("/api/auth/me") 
+    async def get_me(request: Request):
         """Get current user information"""
-        if not AUTH_AVAILABLE:
-            return {
-                "message": "User service temporarily unavailable",
-                "status": "service_initializing"
-            }
+        authorization = request.headers.get("authorization")
         
-        try:
-            if hasattr(current_user, 'to_dict'):
-                return {"user": current_user.to_dict()}
-            else:
-                return {"user": current_user}
-        except Exception as e:
-            print(f"User info error: {e}")
-            return {
-                "error": "Failed to retrieve user information",
-                "message": "Please try again later"
-            }
+        if AUTH_AVAILABLE:
+            try:
+                # Extract token from authorization header manually
+                if not authorization or not authorization.startswith("Bearer "):
+                    raise HTTPException(status_code=401, detail="Authorization header required")
+                
+                token = authorization.split(" ", 1)[1]
+                user = await auth_service.get_current_user(token)
+                
+                if hasattr(user, 'to_dict'):
+                    return {"user": user.to_dict()}
+                else:
+                    return {"user": user}
+            except HTTPException as e:
+                raise e
+            except Exception as e:
+                print(f"User info error: {e}")
+                return {
+                    "error": "Failed to retrieve user information",
+                    "message": "Please try again later"
+                }
+        else:
+            # Fallback system
+            try:
+                current_user = await get_current_user_safe(authorization)
+                return {
+                    "user": {
+                        "id": current_user["user_id"],
+                        "email": current_user["email"],
+                        "note": "Using lightweight in-memory storage for demo"
+                    }
+                }
+            except HTTPException as e:
+                raise e
     
     @app.post("/api/auth/refresh")
     async def refresh_token(refresh_token: str):
